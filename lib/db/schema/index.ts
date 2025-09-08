@@ -9,5 +9,3 @@ export * from "./interviews"
 export * from "./expenses"
 export * from "./salaries"
 export * from "./audit-logs"
-
-

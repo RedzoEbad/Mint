@@ -17,5 +17,3 @@ export const experienceDetailsRelations = relations(experienceDetails, ({ one })
     references: [candidates.id],
   }),
 }))
-
-

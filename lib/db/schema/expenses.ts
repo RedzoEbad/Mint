@@ -28,5 +28,3 @@ export const expensesRelations = relations(expenses, ({ one }) => ({
     references: [users.id],
   }),
 }))
-
-

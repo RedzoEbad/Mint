@@ -33,5 +33,3 @@ export const interviewsRelations = relations(interviews, ({ one }) => ({
     references: [users.id],
   }),
 }))
-
-

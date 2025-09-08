@@ -15,5 +15,3 @@ export const companies = pgTable("companies", {
 })
 
 export const companiesRelations = relations(companies, () => ({}))
-
-

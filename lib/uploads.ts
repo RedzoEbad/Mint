@@ -23,5 +23,3 @@ export async function saveFile(type: string, file: File): Promise<{ url: string;
   const url = `/uploads/${type}/${filename}`
   return { url, filepath, filename }
 }
-
-

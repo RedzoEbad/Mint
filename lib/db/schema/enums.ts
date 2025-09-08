@@ -73,5 +73,3 @@ export const overallStatusEnum = pgEnum("overall_status", [
   "completed",
   "cancelled",
 ])
-
-

@@ -40,5 +40,3 @@ export async function requireAuth(
 
   return { ok: true, payload: payload as any }
 }
-
-

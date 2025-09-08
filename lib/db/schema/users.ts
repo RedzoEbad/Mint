@@ -25,5 +25,3 @@ export const usersRelations = relations(users, ({ many }) => ({
   // Other relations are declared in their own modules
   
 }))
-
-

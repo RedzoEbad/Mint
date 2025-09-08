@@ -46,5 +46,3 @@ export const workflowStagesRelations = relations(workflowStages, ({ one }) => ({
     references: [users.id],
   }),
 }))
-
-

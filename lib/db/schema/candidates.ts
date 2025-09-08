@@ -37,5 +37,3 @@ export const candidates = pgTable(
 )
 
 export const candidatesRelations = relations(candidates, () => ({}))
-
-

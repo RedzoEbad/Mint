@@ -47,44 +47,44 @@ npm run dev
 
 1) Seed the first admin (super_admin) user with hashed password (via Node script):
 
-```bash
+\`\`\`bash
 # Windows PowerShell
 $env:DATABASE_URL="postgres://USER:PASSWORD@HOST:PORT/DBNAME"
 $env:ADMIN_EMAIL="admin@mintinternational.org"
 $env:ADMIN_PASSWORD="admin123"
 npm run db:init
-```
+\`\`\`
 
 2) Start the app and log in to obtain a JWT:
 
-```bash
+\`\`\`bash
 npm run dev
-```
+\`\`\`
 
 Request a token using the login endpoint:
 
-```bash
+\`\`\`bash
 # PowerShell
 $tokenResponse = Invoke-RestMethod -Method POST `
   -Uri http://localhost:3000/api/auth/login `
   -Headers @{ 'Content-Type' = 'application/json' } `
   -Body (@{ email = 'admin@mintinternational.org'; password = 'admin123' } | ConvertTo-Json)
 $tokenResponse
-```
+\`\`\`
 
 Or with curl:
 
-```bash
+\`\`\`bash
 curl -s -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@mintinternational.org","password":"admin123"}'
-```
+\`\`\`
 
 The response contains `token`. Use it in subsequent requests:
 
-```bash
+\`\`\`bash
 curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:3000/api/candidates
-```
+\`\`\`
 
 ## API Documentation
 
@@ -112,12 +112,12 @@ Upload endpoint:
 
 Example (PowerShell):
 
-```powershell
+\`\`\`powershell
 $token = "YOUR_JWT"
 Invoke-WebRequest -Uri http://localhost:3000/api/uploads/profile-images -Method POST -Headers @{
   Authorization = "Bearer $token"
 } -InFile .\avatar.jpg -ContentType "multipart/form-data"
-```
+\`\`\`
 
 In forms, save the returned `url` (e.g. `/uploads/profile-images/abc-123.jpg`) to the DB field and render with `next/image`.
 
@@ -139,7 +139,7 @@ You can use these accounts to explore dashboards:
 
 The init script seeds them automatically if missing. To customize, set env vars before running `npm run db:init`:
 
-```powershell
+\`\`\`powershell
 $env:RECEPTIONIST_EMAIL="receptionist@mintinternational.org"
 $env:RECEPTIONIST_PASSWORD="receptionist123"
 $env:AGENT_EMAIL="agent@mintinternational.org"
@@ -147,7 +147,7 @@ $env:AGENT_PASSWORD="agent123"
 $env:ACCOUNTS_EMAIL="accounts@mintinternational.org"
 $env:ACCOUNTS_PASSWORD="accounts123"
 npm run db:init
-```
+\`\`\`
 
 ## Project Structure
 

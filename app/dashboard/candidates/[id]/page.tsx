@@ -190,5 +190,3 @@ function StaticField({ label, value, className, multiline }: { label: string; va
     </div>
   )
 }
-
-
