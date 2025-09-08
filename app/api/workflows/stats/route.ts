@@ -1,66 +1,72 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/database"
-import { verifyToken } from "@/lib/auth"
+import { requireAuth } from "@/lib/api-auth"
+import { withTiming, timedQuery, logSlowOperation } from "@/lib/performance"
 
-export async function GET(request: NextRequest) {
+// Dynamic route - can't use revalidate with request headers
+
+export const GET = withTiming(async (request: NextRequest) => {
   try {
-    const authHeader = request.headers.get("Authorization")
-    const token = authHeader?.replace("Bearer ", "") || request.cookies.get("auth-token")?.value
-
-    if (!token) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
-    }
-
-    const payload = verifyToken(token)
-    if (!payload) {
-      return NextResponse.json({ success: false, message: "Invalid token" }, { status: 401 })
-    }
+    const auth = await requireAuth(request, ["super_admin", "process_agent"])
+    if (!auth.ok) return auth.response
 
     let whereClause = ""
     const params: any[] = []
 
     // If user is process_agent, only show their stats
-    if (payload.role === "process_agent") {
+    if (auth.payload.role === "process_agent") {
       whereClause = "WHERE assigned_agent = $1"
-      params.push(payload.userId)
+      params.push(auth.payload.userId)
     }
 
     const [activeResult, todayResult, statusResult, interviewsResult] = await Promise.all([
       // Active workflows
-      query(
-        `SELECT COUNT(*) as active FROM workflow_stages ${whereClause} ${whereClause ? "AND" : "WHERE"} overall_status IN ('initiated', 'in_progress')`,
-        params,
+      timedQuery(
+        () => query(
+          `SELECT COUNT(*) as active FROM workflow_stages ${whereClause} ${whereClause ? "AND" : "WHERE"} overall_status IN ('initiated', 'in_progress')`,
+          params,
+        ),
+        "Active Workflows Count"
       ),
 
       // Today's completed workflows
-      query(
-        `SELECT COUNT(*) as today FROM workflow_stages ${whereClause} ${whereClause ? "AND" : "WHERE"} overall_status = 'completed' AND DATE(updated_at) = CURRENT_DATE`,
-        params,
+      timedQuery(
+        () => query(
+          `SELECT COUNT(*) as today FROM workflow_stages ${whereClause} ${whereClause ? "AND" : "WHERE"} overall_status = 'completed' AND DATE(updated_at) = CURRENT_DATE`,
+          params,
+        ),
+        "Today's Completed Count"
       ),
 
       // Status breakdown
-      query(
-        `
-        SELECT 
-          overall_status,
-          COUNT(*) as count
-        FROM workflow_stages 
-        ${whereClause}
-        GROUP BY overall_status
-      `,
-        params,
+      timedQuery(
+        () => query(
+          `
+          SELECT 
+            overall_status,
+            COUNT(*) as count
+          FROM workflow_stages 
+          ${whereClause}
+          GROUP BY overall_status
+        `,
+          params,
+        ),
+        "Status Breakdown Query"
       ),
 
       // Pending interviews count
-      query(
-        `
-        SELECT COUNT(*) as pending_interviews
-        FROM interviews i
-        JOIN workflow_stages w ON i.candidate_id = w.candidate_id
-        WHERE i.interview_status = 'scheduled' 
-        ${whereClause ? `AND w.assigned_agent = $${params.length}` : ""}
-      `,
-        whereClause ? params : [],
+      timedQuery(
+        () => query(
+          `
+          SELECT COUNT(*) as pending_interviews
+          FROM interviews i
+          JOIN workflow_stages w ON i.candidate_id = w.candidate_id
+          WHERE i.interview_status = 'scheduled' 
+          ${whereClause ? `AND w.assigned_agent = $${params.length}` : ""}
+        `,
+          whereClause ? params : [],
+        ),
+        "Pending Interviews Count"
       ),
     ])
 
@@ -82,4 +88,4 @@ export async function GET(request: NextRequest) {
     console.error("Get workflow stats error:", error)
     return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 })
   }
-}
+}, "Workflow Stats API")

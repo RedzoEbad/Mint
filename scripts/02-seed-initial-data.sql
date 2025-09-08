@@ -1,14 +1,6 @@
 -- Seed initial data for MINT International
 
--- Insert default Super Admin user (password: admin123 - should be changed in production)
-INSERT INTO users (email, password_hash, role, full_name, phone) VALUES 
-('admin@mintinternational.org', '$2b$10$rOzJqQqQqQqQqQqQqQqQqOzJqQqQqQqQqQqQqQqQqOzJqQqQqQqQq', 'super_admin', 'System Administrator', '+92-300-0000000');
-
--- Insert sample employee users
-INSERT INTO users (email, password_hash, role, full_name, phone) VALUES 
-('receptionist@mintinternational.org', '$2b$10$rOzJqQqQqQqQqQqQqQqQqOzJqQqQqQqQqQqQqQqQqOzJqQqQqQqQq', 'receptionist', 'Sarah Ahmed', '+92-300-1111111'),
-('agent@mintinternational.org', '$2b$10$rOzJqQqQqQqQqQqQqQqQqOzJqQqQqQqQqQqQqQqQqOzJqQqQqQqQq', 'process_agent', 'Muhammad Ali', '+92-300-2222222'),
-('accounts@mintinternational.org', '$2b$10$rOzJqQqQqQqQqQqQqQqQqOzJqQqQqQqQqQqQqQqQqOzJqQqQqQqQq', 'accountant', 'Fatima Khan', '+92-300-3333333');
+-- Users are seeded via scripts/init-db.js to ensure hashed passwords
 
 -- Insert sample companies
 INSERT INTO companies (name, contact_person, email, phone, address, country, requirements) VALUES 

@@ -9,7 +9,7 @@ CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    role VARCHAR(50) NOT NULL CHECK (role IN ('super_admin', 'receptionist', 'process_agent', 'accountant')),
+    role VARCHAR(50) NOT NULL CHECK (role IN ('super_admin', 'admin', 'receptionist', 'process_agent', 'accountant')),
     full_name VARCHAR(255) NOT NULL,
     phone VARCHAR(20),
     is_active BOOLEAN DEFAULT true,
@@ -140,7 +140,7 @@ CREATE TABLE expenses (
 );
 
 -- Salaries table (for employee salary management)
-CREATE TABLE salaries (
+CREATE TABLE IF NOT EXISTS salaries (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     basic_salary DECIMAL(10, 2) NOT NULL,
@@ -156,7 +156,7 @@ CREATE TABLE salaries (
 );
 
 -- Audit logs table (for tracking user actions)
-CREATE TABLE audit_logs (
+CREATE TABLE IF NOT EXISTS audit_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id),
     action VARCHAR(255) NOT NULL,
@@ -178,8 +178,8 @@ CREATE INDEX idx_payments_candidate_id ON payments(candidate_id);
 CREATE INDEX idx_payments_status ON payments(payment_status);
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_role ON users(role);
-CREATE INDEX idx_audit_logs_user_id ON audit_logs(user_id);
-CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at);
 
 -- Create updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()

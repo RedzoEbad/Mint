@@ -5,12 +5,15 @@ import bcrypt from "bcryptjs"
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const user = await verifyToken(request)
-    if (!user || user.role !== "super_admin") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const authHeader = request.headers.get("authorization")
+    const token = authHeader?.replace("Bearer ", "") || request.cookies.get("auth-token")?.value
+    if (!token) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
+    const user = await verifyToken(token)
+    if (!user || !["super_admin", "admin"].includes(user.role)) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
     }
 
-    const { username, email, password, role, is_active } = await request.json()
+    const { email, full_name, password, role, is_active } = await request.json()
     const userId = params.id
 
     // Build update query dynamically
@@ -18,15 +21,15 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const values = []
     let paramCount = 1
 
-    if (username) {
-      updates.push(`username = $${paramCount}`)
-      values.push(username)
-      paramCount++
-    }
-
     if (email) {
       updates.push(`email = $${paramCount}`)
       values.push(email)
+      paramCount++
+    }
+
+    if (full_name) {
+      updates.push(`full_name = $${paramCount}`)
+      values.push(full_name)
       paramCount++
     }
 
@@ -58,7 +61,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       UPDATE users 
       SET ${updates.join(", ")}, updated_at = NOW()
       WHERE id = $${paramCount}
-      RETURNING id, username, email, role, is_active, created_at, updated_at
+      RETURNING id, email, role, full_name, is_active, created_at, updated_at
     `
 
     const result = await query(updateQuery, values)
@@ -67,36 +70,39 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    return NextResponse.json(result.rows[0])
+    return NextResponse.json({ success: true, user: result.rows[0] })
   } catch (error) {
     console.error("Update user error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 })
   }
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const user = await verifyToken(request)
-    if (!user || user.role !== "super_admin") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const authHeader = request.headers.get("authorization")
+    const token = authHeader?.replace("Bearer ", "") || request.cookies.get("auth-token")?.value
+    if (!token) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
+    const user = await verifyToken(token)
+    if (!user || !["super_admin", "admin"].includes(user.role)) {
+      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
     }
 
     const userId = params.id
 
     // Prevent self-deletion
-    if (user.id === Number.parseInt(userId)) {
-      return NextResponse.json({ error: "Cannot delete your own account" }, { status: 400 })
+    if (user.userId === userId) {
+      return NextResponse.json({ success: false, message: "Cannot delete your own account" }, { status: 400 })
     }
 
     const result = await query("DELETE FROM users WHERE id = $1 RETURNING id", [userId])
 
     if (result.rows.length === 0) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+      return NextResponse.json({ success: false, message: "User not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ message: "User deleted successfully" })
+    return NextResponse.json({ success: true, message: "User deleted successfully" })
   } catch (error) {
     console.error("Delete user error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 })
   }
 }

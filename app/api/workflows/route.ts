@@ -1,20 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/database"
-import { verifyToken } from "@/lib/auth"
+import { requireAuth } from "@/lib/api-auth"
+import { withTiming, timedQuery } from "@/lib/performance"
 
-export async function GET(request: NextRequest) {
+// Dynamic route - can't use revalidate with request headers
+
+export const GET = withTiming(async (request: NextRequest) => {
   try {
-    const authHeader = request.headers.get("Authorization")
-    const token = authHeader?.replace("Bearer ", "") || request.cookies.get("auth-token")?.value
-
-    if (!token) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
-    }
-
-    const payload = verifyToken(token)
-    if (!payload || !["super_admin", "process_agent"].includes(payload.role)) {
-      return NextResponse.json({ success: false, message: "Insufficient permissions" }, { status: 403 })
-    }
+    const auth = await requireAuth(request, ["super_admin", "process_agent"])
+    if (!auth.ok) return auth.response
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get("status") || ""
@@ -40,28 +34,31 @@ export async function GET(request: NextRequest) {
     }
 
     // If user is process_agent (not super_admin), only show their assigned workflows
-    if (payload.role === "process_agent") {
+    if (auth.payload.role === "process_agent") {
       paramCount++
       whereClause += ` AND w.assigned_agent = $${paramCount}`
-      params.push(payload.userId)
+      params.push(auth.payload.userId)
     }
 
-    const workflowsResult = await query(
-      `SELECT 
-        w.*,
-        c.full_name as candidate_name,
-        c.passport_no,
-        c.post_applied_for,
-        comp.name as company_name,
-        u.full_name as agent_name
-      FROM workflow_stages w
-      LEFT JOIN candidates c ON w.candidate_id = c.id
-      LEFT JOIN companies comp ON w.company_id = comp.id
-      LEFT JOIN users u ON w.assigned_agent = u.id
-      ${whereClause}
-      ORDER BY w.created_at DESC
-      LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`,
-      [...params, limit, offset],
+    const workflowsResult = await timedQuery(
+      () => query(
+        `SELECT 
+          w.*,
+          c.full_name as candidate_name,
+          c.passport_no,
+          c.post_applied_for,
+          comp.name as company_name,
+          u.full_name as agent_name
+        FROM workflow_stages w
+        LEFT JOIN candidates c ON w.candidate_id = c.id
+        LEFT JOIN companies comp ON w.company_id = comp.id
+        LEFT JOIN users u ON w.assigned_agent = u.id
+        ${whereClause}
+        ORDER BY w.created_at DESC
+        LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`,
+        [...params, limit, offset],
+      ),
+      "Workflows List Query"
     )
 
     return NextResponse.json({
@@ -72,21 +69,12 @@ export async function GET(request: NextRequest) {
     console.error("Get workflows error:", error)
     return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 })
   }
-}
+}, "Workflows API")
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("Authorization")
-    const token = authHeader?.replace("Bearer ", "") || request.cookies.get("auth-token")?.value
-
-    if (!token) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
-    }
-
-    const payload = verifyToken(token)
-    if (!payload || !["super_admin", "process_agent"].includes(payload.role)) {
-      return NextResponse.json({ success: false, message: "Insufficient permissions" }, { status: 403 })
-    }
+    const auth = await requireAuth(request, ["super_admin", "process_agent"])
+    if (!auth.ok) return auth.response
 
     const { candidate_id, company_id } = await request.json()
 
@@ -107,7 +95,7 @@ export async function POST(request: NextRequest) {
       `INSERT INTO workflow_stages (candidate_id, company_id, assigned_agent)
        VALUES ($1, $2, $3)
        RETURNING id`,
-      [candidate_id, company_id, payload.userId],
+      [candidate_id, company_id, auth.payload.userId],
     )
 
     return NextResponse.json({

@@ -2,17 +2,18 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { verifyToken } from "./lib/auth-utils"
 
-// Define protected routes and their required roles
+// Define protected routes and their required roles (strict separation)
 const protectedRoutes = {
-  "/dashboard": ["super_admin", "receptionist", "process_agent", "accountant"],
+  "/dashboard": ["super_admin", "admin", "receptionist", "process_agent", "accountant"],
   "/dashboard/admin": ["super_admin"],
-  "/dashboard/receptionist": ["super_admin", "receptionist"],
-  "/dashboard/agent": ["super_admin", "process_agent"],
-  "/dashboard/accounts": ["super_admin", "accountant"],
-  "/api/candidates": ["super_admin", "receptionist", "process_agent"],
-  "/api/users": ["super_admin"],
-  "/api/payments": ["super_admin", "accountant", "process_agent"],
-  "/api/reports": ["super_admin", "accountant", "process_agent"],
+  "/dashboard/receptionist": ["receptionist"],
+  "/dashboard/agent": ["process_agent"],
+  "/dashboard/accounts": ["accountant"],
+  "/dashboard/users": ["admin"],
+  "/api/candidates": ["receptionist", "process_agent"],
+  "/api/users": ["admin"],
+  "/api/payments": ["accountant", "process_agent"],
+  "/api/reports": ["accountant", "process_agent"],
 }
 
 export async function middleware(request: NextRequest) {

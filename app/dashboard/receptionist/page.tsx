@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { DashboardLayout } from "@/components/dashboard-layout"
+import { getValidToken } from "@/lib/token-utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -19,6 +20,7 @@ import {
 import { Users, UserPlus, Search, Eye, Edit, Trash2, Calendar, FileText } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
+import { EmptyCandidates, EmptySearch } from "@/components/ui/empty-state"
 
 interface Candidate {
   id: string
@@ -46,6 +48,7 @@ export default function ReceptionistDashboard() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all") // Updated default value to 'all'
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null)
+  const [hasSearched, setHasSearched] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -55,6 +58,7 @@ export default function ReceptionistDashboard() {
 
   useEffect(() => {
     const delayedSearch = setTimeout(() => {
+      setHasSearched(true)
       fetchCandidates()
     }, 300)
 
@@ -63,7 +67,7 @@ export default function ReceptionistDashboard() {
 
   const fetchStats = async () => {
     try {
-      const token = localStorage.getItem("auth-token")
+      const token = getValidToken()
       const response = await fetch("/api/candidates/stats", {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -81,7 +85,7 @@ export default function ReceptionistDashboard() {
   const fetchCandidates = async () => {
     try {
       setLoading(true)
-      const token = localStorage.getItem("auth-token")
+      const token = getValidToken()
       const params = new URLSearchParams()
       if (searchTerm) params.append("search", searchTerm)
       if (statusFilter !== "all") params.append("status", statusFilter) // Updated condition to exclude 'all' status
@@ -106,7 +110,7 @@ export default function ReceptionistDashboard() {
     if (!confirm("Are you sure you want to delete this candidate?")) return
 
     try {
-      const token = localStorage.getItem("auth-token")
+      const token = getValidToken()
       const response = await fetch(`/api/candidates/${id}`, {
         method: "DELETE",
         headers: {
@@ -136,6 +140,12 @@ export default function ReceptionistDashboard() {
         variant: "destructive",
       })
     }
+  }
+
+  const clearFilters = () => {
+    setSearchTerm("")
+    setStatusFilter("all")
+    setHasSearched(false)
   }
 
   const getStatusBadge = (status: string) => {
@@ -242,6 +252,12 @@ export default function ReceptionistDashboard() {
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
               </div>
+            ) : candidates.length === 0 ? (
+              hasSearched ? (
+                <EmptySearch onClear={clearFilters} />
+              ) : (
+                <EmptyCandidates onCreate={() => window.location.href = '/dashboard/candidates/add'} />
+              )
             ) : (
               <Table>
                 <TableHeader>

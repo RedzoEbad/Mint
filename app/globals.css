@@ -123,3 +123,64 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+  /* Sidebar Pattern Optimizations */
+  .sidebar-pattern {
+    background-image: url('/images/sidebar-pattern.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: local;
+  }
+  
+  .sidebar-pattern-footer {
+    background-image: url('/images/sidebar-pattern.png');
+    background-size: cover;
+    background-position: bottom center;
+    background-repeat: no-repeat;
+  }
+  
+  /* Enhanced backdrop blur for better pattern visibility */
+  .sidebar-backdrop {
+    backdrop-filter: blur(0.5px);
+    -webkit-backdrop-filter: blur(0.5px);
+  }
+  
+  /* Smooth pattern transitions */
+  .pattern-transition {
+    transition: opacity 0.3s ease-in-out;
+  }
+  
+  /* Responsive pattern adjustments */
+  @media (max-width: 768px) {
+    .sidebar-pattern {
+      background-size: 120% 120%;
+      background-position: center top;
+    }
+    
+    .sidebar-pattern-footer {
+      background-size: 120% 120%;
+      background-position: bottom center;
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    .sidebar-pattern {
+      background-size: 100% 100%;
+    }
+    
+    .sidebar-pattern-footer {
+      background-size: 100% 100%;
+    }
+  }
+  
+  /* Dark mode pattern adjustments */
+  .dark .sidebar-pattern {
+    opacity: 0.08;
+  }
+  
+  .dark .sidebar-pattern-footer {
+    opacity: 0.12;
+  }
+}

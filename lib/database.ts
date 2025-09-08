@@ -4,10 +4,17 @@ if (typeof window !== "undefined") {
 
 import { Pool } from "pg"
 
-// Database connection configuration
+// Database connection configuration with performance optimizations
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+  // Connection pool optimizations
+  max: 20, // Maximum number of clients in the pool
+  min: 2, // Minimum number of clients in the pool
+  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
+  connectionTimeoutMillis: 2000, // Return an error after 2 seconds if connection could not be established
+  statement_timeout: 10000, // Query timeout of 10 seconds
+  query_timeout: 10000, // Query timeout of 10 seconds
 })
 
 // Test database connection

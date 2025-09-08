@@ -1,20 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/database"
-import { verifyToken } from "@/lib/auth"
+import { requireAuth } from "@/lib/api-auth"
+import { saveFile } from "@/lib/uploads"
+
+export const runtime = "nodejs"
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("Authorization")
-    const token = authHeader?.replace("Bearer ", "") || request.cookies.get("auth-token")?.value
-
-    if (!token) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
-    }
-
-    const payload = verifyToken(token)
-    if (!payload || !["super_admin", "receptionist", "process_agent"].includes(payload.role)) {
-      return NextResponse.json({ success: false, message: "Insufficient permissions" }, { status: 403 })
-    }
+    const auth = await requireAuth(request, ["super_admin", "receptionist", "process_agent"])
+    if (!auth.ok) return auth.response
 
     const { searchParams } = new URL(request.url)
     const search = searchParams.get("search") || ""
@@ -75,19 +69,75 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("Authorization")
-    const token = authHeader?.replace("Bearer ", "") || request.cookies.get("auth-token")?.value
+    const auth = await requireAuth(request, ["super_admin", "receptionist"])
+    if (!auth.ok) return auth.response
 
-    if (!token) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
+    const contentType = request.headers.get("content-type") || ""
+    let payload: any = {}
+    let profileImageUrl: string | null = null
+    let cvFileUrl: string | null = null
+
+    if (contentType.includes("multipart/form-data")) {
+      const form = await request.formData()
+      // Strings
+      payload.full_name = String(form.get("full_name") || "").trim()
+      payload.father_name = String(form.get("father_name") || "").trim()
+      payload.date_of_birth = String(form.get("date_of_birth") || "") || null
+      payload.marital_status = String(form.get("marital_status") || "").trim()
+      payload.religion = String(form.get("religion") || "").trim()
+      payload.passport_no = String(form.get("passport_no") || "").trim()
+      payload.date_of_issue = String(form.get("date_of_issue") || "") || null
+      payload.date_of_expiry = String(form.get("date_of_expiry") || "") || null
+      payload.place_of_issue = String(form.get("place_of_issue") || "").trim()
+      payload.academic_qualifications = String(form.get("academic_qualifications") || "")
+      payload.technical_qualifications = String(form.get("technical_qualifications") || "")
+      payload.experience_total = String(form.get("experience_total") || "").trim()
+      payload.post_applied_for = String(form.get("post_applied_for") || "").trim()
+      payload.referred_by = String(form.get("referred_by") || "").trim()
+      payload.remarks = String(form.get("remarks") || "")
+
+      // Arrays / JSON-ish
+      const langsRaw = form.get("languages_known")
+      if (typeof langsRaw === "string") {
+        try {
+          const arr = JSON.parse(langsRaw)
+          payload.languages_known = Array.isArray(arr) ? arr : []
+        } catch {
+          payload.languages_known = []
+        }
+      } else {
+        payload.languages_known = []
+      }
+
+      const expRaw = form.get("experience_details")
+      if (typeof expRaw === "string") {
+        try {
+          const arr = JSON.parse(expRaw)
+          payload.experience_details = Array.isArray(arr) ? arr : []
+        } catch {
+          payload.experience_details = []
+        }
+      } else {
+        payload.experience_details = []
+      }
+
+      // Files
+      const profileImage = form.get("profile_image_file")
+      if (profileImage instanceof File && profileImage.size > 0) {
+        profileImageUrl = (await saveFile("profile-images", profileImage)).url
+      }
+      const cvDoc = form.get("cv_file")
+      if (cvDoc instanceof File && cvDoc.size > 0) {
+        cvFileUrl = (await saveFile("cv-docs", cvDoc)).url
+      }
+    } else {
+      // JSON body fallback
+      const data = await request.json()
+      payload = data
+      profileImageUrl = data.profile_image || null
+      cvFileUrl = data.cv_file || null
     }
 
-    const payload = verifyToken(token)
-    if (!payload || !["super_admin", "receptionist"].includes(payload.role)) {
-      return NextResponse.json({ success: false, message: "Insufficient permissions" }, { status: 403 })
-    }
-
-    const data = await request.json()
     const {
       full_name,
       father_name,
@@ -104,11 +154,9 @@ export async function POST(request: NextRequest) {
       experience_total,
       post_applied_for,
       referred_by,
-      profile_image,
-      cv_file,
       remarks,
       experience_details,
-    } = data
+    } = payload
 
     // Insert candidate
     const candidateResult = await query(
@@ -136,10 +184,10 @@ export async function POST(request: NextRequest) {
         experience_total,
         post_applied_for,
         referred_by,
-        profile_image,
-        cv_file,
+        profileImageUrl,
+        cvFileUrl,
         remarks,
-        payload.userId,
+        auth.payload.userId,
       ],
     )
 

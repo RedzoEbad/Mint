@@ -1,20 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/database"
-import { verifyToken } from "@/lib/auth"
+import { requireAuth } from "@/lib/api-auth"
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("Authorization")
-    const token = authHeader?.replace("Bearer ", "") || request.cookies.get("auth-token")?.value
-
-    if (!token) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
-    }
-
-    const payload = verifyToken(token)
-    if (!payload || !["super_admin", "accountant", "process_agent"].includes(payload.role)) {
-      return NextResponse.json({ success: false, message: "Insufficient permissions" }, { status: 403 })
-    }
+    const auth = await requireAuth(request, ["super_admin", "accountant", "process_agent"])
+    if (!auth.ok) return auth.response
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get("status") || ""
@@ -66,17 +57,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("Authorization")
-    const token = authHeader?.replace("Bearer ", "") || request.cookies.get("auth-token")?.value
-
-    if (!token) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
-    }
-
-    const payload = verifyToken(token)
-    if (!payload || !["super_admin", "process_agent"].includes(payload.role)) {
-      return NextResponse.json({ success: false, message: "Insufficient permissions" }, { status: 403 })
-    }
+    const auth = await requireAuth(request, ["super_admin", "process_agent"])
+    if (!auth.ok) return auth.response
 
     const { candidate_id, workflow_id, payment_type, amount, currency, payment_method, transaction_id, notes } =
       await request.json()

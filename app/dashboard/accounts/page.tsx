@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { DashboardLayout } from "@/components/dashboard-layout"
+import { getValidToken } from "@/lib/token-utils"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -21,6 +22,7 @@ import {
 } from "@/components/ui/dialog"
 import { TrendingUp, TrendingDown, CheckCircle, XCircle, Clock, Plus } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { EmptyPayments, EmptySearch } from "@/components/ui/empty-state"
 
 interface PaymentStats {
   pending: number
@@ -80,7 +82,7 @@ export default function AccountsDashboard() {
 
   const fetchStats = async () => {
     try {
-      const token = localStorage.getItem("auth-token")
+      const token = getValidToken()
       const response = await fetch("/api/payments/stats", {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -98,7 +100,7 @@ export default function AccountsDashboard() {
   const fetchPayments = async () => {
     try {
       setLoading(true)
-      const token = localStorage.getItem("auth-token")
+      const token = getValidToken()
       const response = await fetch("/api/payments", {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -117,7 +119,7 @@ export default function AccountsDashboard() {
 
   const fetchExpenses = async () => {
     try {
-      const token = localStorage.getItem("auth-token")
+      const token = getValidToken()
       const response = await fetch("/api/expenses", {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -134,7 +136,7 @@ export default function AccountsDashboard() {
 
   const updatePaymentStatus = async (paymentId: string, status: string) => {
     try {
-      const token = localStorage.getItem("auth-token")
+      const token = getValidToken()
       const response = await fetch(`/api/payments/${paymentId}`, {
         method: "PUT",
         headers: {
@@ -175,7 +177,7 @@ export default function AccountsDashboard() {
 
   const createExpense = async () => {
     try {
-      const token = localStorage.getItem("auth-token")
+      const token = getValidToken()
       const response = await fetch("/api/expenses", {
         method: "POST",
         headers: {
@@ -221,7 +223,7 @@ export default function AccountsDashboard() {
 
   const updateExpenseStatus = async (expenseId: string, status: string) => {
     try {
-      const token = localStorage.getItem("auth-token")
+      const token = getValidToken()
       const response = await fetch(`/api/expenses/${expenseId}`, {
         method: "PUT",
         headers: {
@@ -392,6 +394,8 @@ export default function AccountsDashboard() {
                   <div className="flex items-center justify-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                   </div>
+                ) : payments.length === 0 ? (
+                  <EmptyPayments onCreate={() => window.location.href = '/dashboard/candidates/add'} />
                 ) : (
                   <Table>
                     <TableHeader>

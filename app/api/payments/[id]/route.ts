@@ -1,20 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/database"
-import { verifyToken } from "@/lib/auth"
+import { requireAuth } from "@/lib/api-auth"
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const authHeader = request.headers.get("Authorization")
-    const token = authHeader?.replace("Bearer ", "") || request.cookies.get("auth-token")?.value
-
-    if (!token) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
-    }
-
-    const payload = verifyToken(token)
-    if (!payload || !["super_admin", "accountant"].includes(payload.role)) {
-      return NextResponse.json({ success: false, message: "Insufficient permissions" }, { status: 403 })
-    }
+    const auth = await requireAuth(request, ["super_admin", "accountant"])
+    if (!auth.ok) return auth.response
 
     const { payment_status, notes } = await request.json()
 
@@ -27,7 +18,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         payment_date = CASE WHEN $1 = 'paid' THEN CURRENT_TIMESTAMP ELSE payment_date END,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = $4`,
-      [payment_status, notes, payload.userId, params.id],
+      [payment_status, notes, auth.payload.userId, params.id],
     )
 
     // Update corresponding workflow payment status

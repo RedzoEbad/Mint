@@ -2,8 +2,9 @@ import { type NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/database"
 import { verifyToken } from "@/lib/auth"
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await context.params
     const authHeader = request.headers.get("Authorization")
     const token = authHeader?.replace("Bearer ", "") || request.cookies.get("auth-token")?.value
 
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
     }
 
-    const payload = verifyToken(token)
+    const payload = await verifyToken(token)
     if (!payload) {
       return NextResponse.json({ success: false, message: "Invalid token" }, { status: 401 })
     }
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       FROM candidates c
       LEFT JOIN users u ON c.created_by = u.id
       WHERE c.id = $1`,
-      [params.id],
+      [id],
     )
 
     if (candidateResult.rows.length === 0) {
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     // Get experience details
     const experienceResult = await query(
       `SELECT * FROM experience_details WHERE candidate_id = $1 ORDER BY created_at`,
-      [params.id],
+      [id],
     )
 
     const candidate = {
@@ -51,8 +52,9 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await context.params
     const authHeader = request.headers.get("Authorization")
     const token = authHeader?.replace("Bearer ", "") || request.cookies.get("auth-token")?.value
 
@@ -60,7 +62,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
     }
 
-    const payload = verifyToken(token)
+    const payload = await verifyToken(token)
     if (!payload || !["super_admin", "receptionist"].includes(payload.role)) {
       return NextResponse.json({ success: false, message: "Insufficient permissions" }, { status: 403 })
     }
@@ -119,21 +121,21 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         cv_file,
         remarks,
         status,
-        params.id,
+        id,
       ],
     )
 
     // Update experience details
     if (experience_details) {
       // Delete existing experience details
-      await query("DELETE FROM experience_details WHERE candidate_id = $1", [params.id])
+      await query("DELETE FROM experience_details WHERE candidate_id = $1", [id])
 
       // Insert new experience details
       for (const exp of experience_details) {
         await query(
           `INSERT INTO experience_details (candidate_id, company_name, duration, trade)
            VALUES ($1, $2, $3, $4)`,
-          [params.id, exp.company_name, exp.duration, exp.trade],
+          [id, exp.company_name, exp.duration, exp.trade],
         )
       }
     }
@@ -148,8 +150,9 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await context.params
     const authHeader = request.headers.get("Authorization")
     const token = authHeader?.replace("Bearer ", "") || request.cookies.get("auth-token")?.value
 
@@ -157,12 +160,12 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
     }
 
-    const payload = verifyToken(token)
+    const payload = await verifyToken(token)
     if (!payload || !["super_admin", "receptionist"].includes(payload.role)) {
       return NextResponse.json({ success: false, message: "Insufficient permissions" }, { status: 403 })
     }
 
-    await query("DELETE FROM candidates WHERE id = $1", [params.id])
+    await query("DELETE FROM candidates WHERE id = $1", [id])
 
     return NextResponse.json({
       success: true,

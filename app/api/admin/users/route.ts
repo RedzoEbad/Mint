@@ -1,65 +1,63 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { verifyToken } from "@/lib/auth"
+import { requireAuth } from "@/lib/api-auth"
 import { query } from "@/lib/database"
 import bcrypt from "bcryptjs"
+import { withTiming, timedQuery } from "@/lib/performance"
 
-export async function GET(request: NextRequest) {
+// Dynamic route - can't use revalidate with request headers
+
+export const GET = withTiming(async (request: NextRequest) => {
   try {
-    const user = await verifyToken(request)
-    if (!user || user.role !== "super_admin") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const auth = await requireAuth(request, ["super_admin", "admin"])
+    if (!auth.ok) return auth.response
 
-    const users = await query(`
-      SELECT id, username, email, role, is_active, created_at, last_login
-      FROM users
-      ORDER BY created_at DESC
-    `)
+    const result = await timedQuery(
+      () => query(
+      `SELECT id, email, role, full_name, phone, is_active, created_at, updated_at
+       FROM users
+       ORDER BY created_at DESC`,
+    ), "Admin Users List Query")
 
-    return NextResponse.json(users.rows)
+    return NextResponse.json({ success: true, users: result.rows })
   } catch (error) {
     console.error("Get users error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 })
   }
-}
+}, "Admin Users GET")
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await verifyToken(request)
-    if (!user || user.role !== "super_admin") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const auth = await requireAuth(request, ["super_admin", "admin"])
+    if (!auth.ok) return auth.response
+
+    const { email, full_name, password, role, is_active } = await request.json()
+
+    if (!email || !full_name || !password || !role) {
+      return NextResponse.json({ success: false, message: "All fields are required" }, { status: 400 })
     }
 
-    const { username, email, password, role } = await request.json()
-
-    // Validate required fields
-    if (!username || !email || !password || !role) {
-      return NextResponse.json({ error: "All fields are required" }, { status: 400 })
+    // Prevent admin from creating super_admin
+    if (auth.payload.role === "admin" && role === "super_admin") {
+      return NextResponse.json({ success: false, message: "Not allowed" }, { status: 403 })
     }
 
-    // Check if user already exists
-    const existingUser = await query("SELECT id FROM users WHERE username = $1 OR email = $2", [username, email])
-
-    if (existingUser.rows.length > 0) {
-      return NextResponse.json({ error: "User already exists" }, { status: 400 })
+    const existing = await query("SELECT id FROM users WHERE email = $1", [email])
+    if (existing.rows.length > 0) {
+      return NextResponse.json({ success: false, message: "User already exists" }, { status: 400 })
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 12)
 
-    // Create user
-    const newUser = await query(
-      `
-      INSERT INTO users (username, email, password_hash, role, is_active)
-      VALUES ($1, $2, $3, $4, true)
-      RETURNING id, username, email, role, is_active, created_at
-    `,
-      [username, email, hashedPassword, role],
+    const insert = await query(
+      `INSERT INTO users (email, password_hash, role, full_name, is_active)
+       VALUES ($1, $2, $3, $4, COALESCE($5, true))
+       RETURNING id, email, role, full_name, is_active, created_at`,
+      [email, hashedPassword, role, full_name, typeof is_active === "boolean" ? is_active : null],
     )
 
-    return NextResponse.json(newUser.rows[0], { status: 201 })
+    return NextResponse.json({ success: true, user: insert.rows[0] }, { status: 201 })
   } catch (error) {
     console.error("Create user error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 })
   }
 }

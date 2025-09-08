@@ -15,11 +15,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: "Invalid credentials" }, { status: 401 })
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       user: result.user,
       token: result.token,
     })
+    // Set httpOnly auth cookie for session maintenance
+    response.cookies.set("auth-token", result.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60,
+    })
+    return response
   } catch (error) {
     console.error("Login API error:", error)
     return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 })

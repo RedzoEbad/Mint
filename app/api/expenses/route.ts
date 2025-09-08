@@ -1,20 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/database"
-import { verifyToken } from "@/lib/auth"
+import { requireAuth } from "@/lib/api-auth"
+import { saveFile } from "@/lib/uploads"
+
+export const runtime = "nodejs"
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("Authorization")
-    const token = authHeader?.replace("Bearer ", "") || request.cookies.get("auth-token")?.value
-
-    if (!token) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
-    }
-
-    const payload = verifyToken(token)
-    if (!payload || !["super_admin", "accountant"].includes(payload.role)) {
-      return NextResponse.json({ success: false, message: "Insufficient permissions" }, { status: 403 })
-    }
+    const auth = await requireAuth(request, ["super_admin", "accountant"])
+    if (!auth.ok) return auth.response
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get("status") || ""
@@ -61,26 +55,45 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("Authorization")
-    const token = authHeader?.replace("Bearer ", "") || request.cookies.get("auth-token")?.value
+    const auth = await requireAuth(request, ["super_admin", "accountant"])
+    if (!auth.ok) return auth.response
 
-    if (!token) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
+    const contentType = request.headers.get("content-type") || ""
+    let category: string = ""
+    let description: string = ""
+    let amount: number = 0
+    let currency: string = ""
+    let expense_date: string | null = null
+    let receiptUrl: string | null = null
+
+    if (contentType.includes("multipart/form-data")) {
+      const form = await request.formData()
+      category = String(form.get("category") || "").trim()
+      description = String(form.get("description") || "").trim()
+      amount = Number(String(form.get("amount") || "0"))
+      currency = String(form.get("currency") || "").trim()
+      expense_date = String(form.get("expense_date") || "") || null
+
+      const file = form.get("receipt_file")
+      if (file instanceof File && file.size > 0) {
+        receiptUrl = (await saveFile("expense-receipts", file)).url
+      }
+    } else {
+      const body = await request.json()
+      category = body.category
+      description = body.description
+      amount = body.amount
+      currency = body.currency
+      expense_date = body.expense_date
+      receiptUrl = body.receipt_file || null
     }
-
-    const payload = verifyToken(token)
-    if (!payload || !["super_admin", "accountant"].includes(payload.role)) {
-      return NextResponse.json({ success: false, message: "Insufficient permissions" }, { status: 403 })
-    }
-
-    const { category, description, amount, currency, expense_date, receipt_file } = await request.json()
 
     const expenseResult = await query(
       `INSERT INTO expenses (
         category, description, amount, currency, expense_date, receipt_file, created_by
       ) VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING id`,
-      [category, description, amount, currency, expense_date, receipt_file, payload.userId],
+      [category, description, amount, currency, expense_date, receiptUrl, auth.payload.userId],
     )
 
     return NextResponse.json({

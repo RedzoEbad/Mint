@@ -4,11 +4,12 @@ import type React from "react"
 
 import { createContext, useContext, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { getValidToken, setValidToken, cleanupMalformedTokens } from "@/lib/token-utils"
 
 interface User {
   id: string
   email: string
-  role: "super_admin" | "receptionist" | "process_agent" | "accountant"
+  role: "super_admin" | "admin" | "receptionist" | "process_agent" | "accountant"
   full_name: string
   phone?: string
 }
@@ -28,8 +29,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
 
   useEffect(() => {
-    // Check for existing token on mount
-    const token = localStorage.getItem("auth-token")
+    // Clean up any malformed tokens first
+    cleanupMalformedTokens()
+    
+    // Check for existing valid token on mount
+    const token = getValidToken()
     if (token) {
       // Verify token with server
       fetch("/api/auth/verify", {
@@ -37,15 +41,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           Authorization: `Bearer ${token}`,
         },
       })
-        .then((res) => res.json())
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`)
+          }
+          return res.json()
+        })
         .then((data) => {
-          if (data.success) {
+          if (data.success && data.user) {
             setUser(data.user)
           } else {
+            console.warn("Token verification failed, clearing stored token")
             localStorage.removeItem("auth-token")
           }
         })
-        .catch(() => {
+        .catch((error) => {
+          console.warn("Token verification error:", error.message)
           localStorage.removeItem("auth-token")
         })
         .finally(() => {
@@ -69,13 +80,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await response.json()
 
       if (data.success) {
-        localStorage.setItem("auth-token", data.token)
-        document.cookie = `auth-token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}` // 7 days
-        setUser(data.user)
+        // Keep token in localStorage for client-side fetches; httpOnly cookie is set by server
+        if (setValidToken(data.token)) {
+          setUser(data.user)
+        } else {
+          console.warn("Failed to store valid token")
+          return false
+        }
 
         // Redirect based on role
         const dashboardRoutes = {
           super_admin: "/dashboard/admin",
+          admin: "/dashboard/users",
           receptionist: "/dashboard/receptionist",
           process_agent: "/dashboard/agent",
           accountant: "/dashboard/accounts",
@@ -92,8 +108,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const logout = () => {
+    // Clear localStorage token
     localStorage.removeItem("auth-token")
-    document.cookie = "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT"
+    
+    // Clear httpOnly cookie by calling logout API
+    fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "include",
+    }).catch(() => {
+      // Fallback: try to clear cookie manually
+      document.cookie = "auth-token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax"
+    })
+    
     setUser(null)
     router.push("/login")
   }

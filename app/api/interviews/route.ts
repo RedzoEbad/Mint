@@ -1,20 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/database"
-import { verifyToken } from "@/lib/auth"
+import { requireAuth } from "@/lib/api-auth"
+import { withTiming, timedQuery } from "@/lib/performance"
 
-export async function GET(request: NextRequest) {
+// Dynamic route - can't use revalidate with request headers
+
+export const GET = withTiming(async (request: NextRequest) => {
   try {
-    const authHeader = request.headers.get("Authorization")
-    const token = authHeader?.replace("Bearer ", "") || request.cookies.get("auth-token")?.value
-
-    if (!token) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
-    }
-
-    const payload = verifyToken(token)
-    if (!payload || !["super_admin", "process_agent"].includes(payload.role)) {
-      return NextResponse.json({ success: false, message: "Insufficient permissions" }, { status: 403 })
-    }
+    const auth = await requireAuth(request, ["super_admin", "process_agent"])
+    if (!auth.ok) return auth.response
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get("status") || ""
@@ -30,13 +24,13 @@ export async function GET(request: NextRequest) {
     }
 
     // If user is process_agent, only show interviews they conducted
-    if (payload.role === "process_agent") {
+    if (auth.payload.role === "process_agent") {
       paramCount++
       whereClause += ` AND i.conducted_by = $${paramCount}`
-      params.push(payload.userId)
+      params.push(auth.payload.userId)
     }
 
-    const interviewsResult = await query(
+    const interviewsResult = await timedQuery(() => query(
       `SELECT 
         i.*,
         c.full_name as candidate_name,
@@ -48,9 +42,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN companies comp ON i.company_id = comp.id
       LEFT JOIN users u ON i.conducted_by = u.id
       ${whereClause}
-      ORDER BY i.interview_date DESC`,
-      params,
-    )
+      ORDER BY i.interview_date DESC`, params), "Interviews List Query")
 
     return NextResponse.json({
       success: true,
@@ -60,21 +52,12 @@ export async function GET(request: NextRequest) {
     console.error("Get interviews error:", error)
     return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 })
   }
-}
+}, "Interviews GET")
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("Authorization")
-    const token = authHeader?.replace("Bearer ", "") || request.cookies.get("auth-token")?.value
-
-    if (!token) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
-    }
-
-    const payload = verifyToken(token)
-    if (!payload || !["super_admin", "process_agent"].includes(payload.role)) {
-      return NextResponse.json({ success: false, message: "Insufficient permissions" }, { status: 403 })
-    }
+    const auth = await requireAuth(request, ["super_admin", "process_agent"])
+    if (!auth.ok) return auth.response
 
     const { candidate_id, company_id, interview_type, interview_date, feedback, result } = await request.json()
 
@@ -82,7 +65,7 @@ export async function POST(request: NextRequest) {
       `INSERT INTO interviews (candidate_id, company_id, interview_type, interview_date, feedback, result, conducted_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id`,
-      [candidate_id, company_id, interview_type, interview_date, feedback, result, payload.userId],
+      [candidate_id, company_id, interview_type, interview_date, feedback, result, auth.payload.userId],
     )
 
     return NextResponse.json({

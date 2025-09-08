@@ -101,7 +101,7 @@ const navigationItems: NavigationItem[] = [
     name: "User Management",
     href: "/dashboard/users",
     icon: UserCheck,
-    roles: ["super_admin"],
+    roles: ["super_admin", "admin"],
   },
   {
     name: "Settings",
@@ -135,22 +135,26 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
 
   const roleLabels = {
     super_admin: "Super Administrator",
+    admin: "Admin",
     receptionist: "Receptionist",
     process_agent: "Process Agent",
     accountant: "Accountant",
   }
 
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
-    <div className="flex h-full flex-col bg-white border-r border-gray-200">
+    <div className="relative flex h-full flex-col bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 overflow-hidden">
+      {/* Background Pattern - Using CSS for better performance */}
+      <div className="absolute inset-0 sidebar-pattern opacity-[0.12] dark:opacity-[0.08] pointer-events-none pattern-transition"></div>
+
       {/* Logo */}
-      <div className="flex h-16 items-center justify-center px-4 border-b border-gray-200">
+      <div className="relative z-10 flex h-16 items-center justify-center px-4 border-b border-gray-200 dark:border-gray-700 bg-white/85 dark:bg-gray-900/85 sidebar-backdrop">
         <div className="relative w-32 h-8">
           <Image src="/images/mint-logo.png" alt="MINT International" fill className="object-contain" />
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 px-2 py-4">
+      <nav className="relative z-10 flex-1 space-y-1 px-2 py-4">
         {filteredNavigation.map((item) => {
           const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href))
 
@@ -160,16 +164,16 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
               href={item.href}
               onClick={() => mobile && setSidebarOpen(false)}
               className={cn(
-                "group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors",
+                "group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-all duration-200 relative",
                 isActive
-                  ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white"
-                  : "text-gray-700 hover:bg-blue-50 hover:text-blue-600",
+                  ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-blue-50/80 dark:hover:bg-gray-800/80 hover:text-blue-600 dark:hover:text-blue-400 hover:shadow-sm sidebar-backdrop",
               )}
             >
               <item.icon
                 className={cn(
-                  "mr-3 h-5 w-5 flex-shrink-0",
-                  isActive ? "text-white" : "text-gray-400 group-hover:text-blue-600",
+                  "mr-3 h-5 w-5 flex-shrink-0 transition-colors",
+                  isActive ? "text-white" : "text-gray-400 dark:text-gray-500 group-hover:text-blue-600 dark:group-hover:text-blue-400",
                 )}
               />
               {item.name}
@@ -178,11 +182,10 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
         })}
       </nav>
 
-      {/* Sidebar Pattern */}
-      <div className="relative h-32 overflow-hidden">
-        <div className="absolute inset-0 opacity-5">
-          <Image src="/images/sidebar-pattern.png" alt="Pattern" fill className="object-cover" />
-        </div>
+      {/* Enhanced Pattern Footer - Using CSS for better performance */}
+      <div className="relative z-10 h-24 overflow-hidden bg-gradient-to-t from-white/90 dark:from-gray-900/90 to-transparent">
+        <div className="absolute inset-0 sidebar-pattern-footer opacity-[0.06] dark:opacity-[0.04] pattern-transition"></div>
+        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white dark:from-gray-900 to-transparent"></div>
       </div>
     </div>
   )

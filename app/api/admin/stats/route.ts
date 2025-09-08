@@ -1,18 +1,17 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { verifyToken } from "@/lib/auth"
+import { requireAuth } from "@/lib/api-auth"
 import { query } from "@/lib/database"
+import { withTiming, timedQuery } from "@/lib/performance"
 
-export async function GET(request: NextRequest) {
+export const GET = withTiming(async (request: NextRequest) => {
   try {
-    const user = await verifyToken(request)
-    if (!user || user.role !== "super_admin") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const auth = await requireAuth(request, ["super_admin", "admin"])
+    if (!auth.ok) return auth.response
 
-    // Get comprehensive system statistics
+    // Get comprehensive system statistics with timing
     const [userStats, candidateStats, companyStats, workflowStats, paymentStats, recentActivity] = await Promise.all([
       // User statistics
-      query(`
+      timedQuery(() => query(`
         SELECT 
           COUNT(*) as total_users,
           COUNT(CASE WHEN role = 'receptionist' THEN 1 END) as receptionists,
@@ -20,10 +19,10 @@ export async function GET(request: NextRequest) {
           COUNT(CASE WHEN role = 'accountant' THEN 1 END) as accountants,
           COUNT(CASE WHEN is_active = true THEN 1 END) as active_users
         FROM users
-      `),
+      `), "User Stats Query"),
 
       // Candidate statistics
-      query(`
+      timedQuery(() => query(`
         SELECT 
           COUNT(*) as total_candidates,
           COUNT(CASE WHEN status = 'active' THEN 1 END) as active_candidates,
@@ -31,18 +30,18 @@ export async function GET(request: NextRequest) {
           COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed,
           COUNT(CASE WHEN created_at >= NOW() - INTERVAL '30 days' THEN 1 END) as new_this_month
         FROM candidates
-      `),
+      `), "Candidate Stats Query"),
 
       // Company statistics
-      query(`
+      timedQuery(() => query(`
         SELECT 
           COUNT(*) as total_companies,
-          COUNT(CASE WHEN is_active = true THEN 1 END) as active_companies
+          COUNT(*) as active_companies
         FROM companies
-      `),
+      `), "Company Stats Query"),
 
       // Workflow statistics
-      query(`
+      timedQuery(() => query(`
         SELECT 
           COUNT(*) as total_workflows,
           COUNT(CASE WHEN medical_status = 'completed' THEN 1 END) as medical_completed,
@@ -50,24 +49,24 @@ export async function GET(request: NextRequest) {
           COUNT(CASE WHEN protector_status = 'completed' THEN 1 END) as protector_completed,
           COUNT(CASE WHEN passport_status = 'completed' THEN 1 END) as passport_completed,
           COUNT(CASE WHEN flight_status = 'completed' THEN 1 END) as flight_completed
-        FROM workflows
-      `),
+        FROM workflow_stages
+      `), "Workflow Stats Query"),
 
       // Payment statistics
-      query(`
+      timedQuery(() => query(`
         SELECT 
           COUNT(*) as total_payments,
-          SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) as total_revenue,
-          COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_payments,
-          AVG(CASE WHEN status = 'paid' THEN amount ELSE NULL END) as avg_payment
+          SUM(CASE WHEN payment_status = 'paid' THEN amount ELSE 0 END) as total_revenue,
+          COUNT(CASE WHEN payment_status = 'pending' THEN 1 END) as pending_payments,
+          AVG(CASE WHEN payment_status = 'paid' THEN amount ELSE NULL END) as avg_payment
         FROM payments
-      `),
+      `), "Payment Stats Query"),
 
       // Recent activity
-      query(`
+      timedQuery(() => query(`
         SELECT 
           'candidate' as type,
-          c.first_name || ' ' || c.last_name as description,
+          c.full_name as description,
           c.created_at as timestamp
         FROM candidates c
         WHERE c.created_at >= NOW() - INTERVAL '7 days'
@@ -80,7 +79,7 @@ export async function GET(request: NextRequest) {
         WHERE p.created_at >= NOW() - INTERVAL '7 days'
         ORDER BY timestamp DESC
         LIMIT 10
-      `),
+      `), "Recent Activity Query"),
     ])
 
     return NextResponse.json({
@@ -93,6 +92,6 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error("Admin stats error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 })
   }
-}
+}, "Admin Stats API")

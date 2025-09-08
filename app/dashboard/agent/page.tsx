@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { DashboardLayout } from "@/components/dashboard-layout"
+import { getValidToken } from "@/lib/token-utils"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -9,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Workflow, Calendar, CheckCircle, Clock, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { EmptyWorkflows, EmptyInterviews, EmptySearch } from "@/components/ui/empty-state"
 
 interface WorkflowStats {
   active: number
@@ -58,12 +60,26 @@ export default function ProcessAgentDashboard() {
 
   const fetchStats = async () => {
     try {
-      const token = localStorage.getItem("auth-token")
+      const token = getValidToken()
+      if (!token) {
+        console.warn("No valid token found for stats fetch")
+        return
+      }
+      
       const response = await fetch("/api/workflows/stats", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       })
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.warn("Unauthorized access to stats - token may be invalid")
+          return
+        }
+        throw new Error(`HTTP ${response.status}`)
+      }
+      
       const data = await response.json()
       if (data.success) {
         setStats(data.data)
@@ -76,12 +92,26 @@ export default function ProcessAgentDashboard() {
   const fetchWorkflows = async () => {
     try {
       setLoading(true)
-      const token = localStorage.getItem("auth-token")
+      const token = getValidToken()
+      if (!token) {
+        console.warn("No valid token found for workflows fetch")
+        return
+      }
+      
       const response = await fetch("/api/workflows", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       })
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.warn("Unauthorized access to workflows - token may be invalid")
+          return
+        }
+        throw new Error(`HTTP ${response.status}`)
+      }
+      
       const data = await response.json()
       if (data.success) {
         setWorkflows(data.data)
@@ -95,12 +125,26 @@ export default function ProcessAgentDashboard() {
 
   const fetchInterviews = async () => {
     try {
-      const token = localStorage.getItem("auth-token")
+      const token = getValidToken()
+      if (!token) {
+        console.warn("No valid token found for interviews fetch")
+        return
+      }
+      
       const response = await fetch("/api/interviews", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       })
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.warn("Unauthorized access to interviews - token may be invalid")
+          return
+        }
+        throw new Error(`HTTP ${response.status}`)
+      }
+      
       const data = await response.json()
       if (data.success) {
         setInterviews(data.data)
@@ -112,7 +156,16 @@ export default function ProcessAgentDashboard() {
 
   const updateWorkflowStatus = async (workflowId: string, statusType: string, newStatus: string) => {
     try {
-      const token = localStorage.getItem("auth-token")
+      const token = getValidToken()
+      if (!token) {
+        toast({
+          title: "Error",
+          description: "No valid authentication token found",
+          variant: "destructive",
+        })
+        return
+      }
+      
       const response = await fetch(`/api/workflows/${workflowId}`, {
         method: "PUT",
         headers: {
@@ -123,6 +176,19 @@ export default function ProcessAgentDashboard() {
           [statusType]: newStatus,
         }),
       })
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          toast({
+            title: "Error",
+            description: "Authentication failed. Please log in again.",
+            variant: "destructive",
+          })
+          return
+        }
+        throw new Error(`HTTP ${response.status}`)
+      }
+      
       const data = await response.json()
 
       if (data.success) {
@@ -318,6 +384,8 @@ export default function ProcessAgentDashboard() {
                   <div className="flex items-center justify-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                   </div>
+                ) : workflows.length === 0 ? (
+                  <EmptyWorkflows onCreate={() => window.location.href = '/dashboard/candidates/add'} />
                 ) : (
                   <div className="overflow-x-auto">
                     <Table>
@@ -400,32 +468,36 @@ export default function ProcessAgentDashboard() {
                 <CardDescription>Schedule and manage candidate interviews</CardDescription>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Candidate</TableHead>
-                      <TableHead>Company</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Result</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {interviews.map((interview) => (
-                      <TableRow key={interview.id}>
-                        <TableCell className="font-medium">{interview.candidate_name}</TableCell>
-                        <TableCell>{interview.company_name}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{interview.interview_type.toUpperCase()}</Badge>
-                        </TableCell>
-                        <TableCell>{new Date(interview.interview_date).toLocaleDateString()}</TableCell>
-                        <TableCell>{getStatusBadge(interview.interview_status)}</TableCell>
-                        <TableCell>{interview.result && getStatusBadge(interview.result)}</TableCell>
+                {interviews.length === 0 ? (
+                  <EmptyInterviews onCreate={() => window.location.href = '/dashboard/candidates/add'} />
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Candidate</TableHead>
+                        <TableHead>Company</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Result</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {interviews.map((interview) => (
+                        <TableRow key={interview.id}>
+                          <TableCell className="font-medium">{interview.candidate_name}</TableCell>
+                          <TableCell>{interview.company_name}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{interview.interview_type.toUpperCase()}</Badge>
+                          </TableCell>
+                          <TableCell>{new Date(interview.interview_date).toLocaleDateString()}</TableCell>
+                          <TableCell>{getStatusBadge(interview.interview_status)}</TableCell>
+                          <TableCell>{interview.result && getStatusBadge(interview.result)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

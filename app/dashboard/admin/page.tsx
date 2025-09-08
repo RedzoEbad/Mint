@@ -1,6 +1,7 @@
 "use client"
 
 import { DashboardLayout } from "@/components/dashboard-layout"
+import { getValidToken } from "@/lib/token-utils"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -20,6 +21,7 @@ import {
 } from "@/components/ui/dialog"
 import { useState, useEffect } from "react"
 import { Users, UserPlus, Download, TrendingUp, DollarSign, Activity } from "lucide-react"
+import { EmptyUsers } from "@/components/ui/empty-state"
 
 interface AdminStats {
   users: {
@@ -62,13 +64,12 @@ interface AdminStats {
 }
 
 interface User {
-  id: number
-  username: string
+  id: string
+  full_name: string
   email: string
   role: string
   is_active: boolean
   created_at: string
-  last_login?: string
 }
 
 export default function AdminDashboard() {
@@ -77,37 +78,43 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false)
   const [newUser, setNewUser] = useState({
-    username: "",
+    full_name: "",
     email: "",
     password: "",
     role: "",
   })
 
   useEffect(() => {
-    fetchStats()
-    fetchUsers()
+    ;(async () => {
+      await Promise.all([fetchStats(), fetchUsers()])
+      setLoading(false)
+    })()
   }, [])
 
   const fetchStats = async () => {
     try {
-      const response = await fetch("/api/admin/stats")
+      const token = getValidToken()
+      const response = await fetch("/api/admin/stats", {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
       if (response.ok) {
         const data = await response.json()
         setStats(data)
       }
     } catch (error) {
       console.error("Error fetching stats:", error)
-    } finally {
-      setLoading(false)
     }
   }
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch("/api/admin/users")
+      const token = getValidToken()
+      const response = await fetch("/api/admin/users", {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
       if (response.ok) {
         const data = await response.json()
-        setUsers(data)
+        setUsers(Array.isArray(data) ? data : data.users || [])
       }
     } catch (error) {
       console.error("Error fetching users:", error)
@@ -116,15 +123,22 @@ export default function AdminDashboard() {
 
   const handleCreateUser = async () => {
     try {
+      const token = getValidToken()
       const response = await fetch("/api/admin/users", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newUser),
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({
+          email: newUser.email,
+          full_name: newUser.full_name,
+          password: newUser.password,
+          role: newUser.role,
+          is_active: true,
+        }),
       })
 
       if (response.ok) {
         setIsCreateUserOpen(false)
-        setNewUser({ username: "", email: "", password: "", role: "" })
+        setNewUser({ full_name: "", email: "", password: "", role: "" })
         fetchUsers()
         fetchStats()
       }
@@ -133,11 +147,12 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleToggleUserStatus = async (userId: number, currentStatus: boolean) => {
+  const handleToggleUserStatus = async (userId: string, currentStatus: boolean) => {
     try {
+      const token = getValidToken()
       const response = await fetch(`/api/admin/users/${userId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ is_active: !currentStatus }),
       })
 
@@ -173,9 +188,12 @@ export default function AdminDashboard() {
   if (loading) {
     return (
       <DashboardLayout title="Super Admin Dashboard">
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-28 bg-white border rounded-lg animate-pulse" />
+          ))}
         </div>
+        <div className="mt-6 bg-white border rounded-lg h-80 animate-pulse" />
       </DashboardLayout>
     )
   }
@@ -314,11 +332,11 @@ export default function AdminDashboard() {
                   </DialogHeader>
                   <div className="space-y-4">
                     <div>
-                      <Label htmlFor="username">Username</Label>
+                      <Label htmlFor="full_name">Full name</Label>
                       <Input
-                        id="username"
-                        value={newUser.username}
-                        onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
+                        id="full_name"
+                        value={newUser.full_name}
+                        onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
                       />
                     </div>
                     <div>
@@ -365,44 +383,48 @@ export default function AdminDashboard() {
 
             <Card>
               <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Username</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {users.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell className="font-medium">{user.username}</TableCell>
-                        <TableCell>{user.email}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{user.role.replace("_", " ").toUpperCase()}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={user.is_active ? "default" : "secondary"}>
-                            {user.is_active ? "Active" : "Inactive"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleToggleUserStatus(user.id, user.is_active)}
-                          >
-                            {user.is_active ? "Deactivate" : "Activate"}
-                          </Button>
-                        </TableCell>
+                {users.length === 0 ? (
+                  <EmptyUsers onCreate={() => setIsCreateUserOpen(true)} />
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Created</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {users.map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell className="font-medium">{user.full_name}</TableCell>
+                          <TableCell>{user.email}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{user.role.replace("_", " ").toUpperCase()}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={user.is_active ? "default" : "secondary"}>
+                              {user.is_active ? "Active" : "Inactive"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleToggleUserStatus(user.id, user.is_active)}
+                            >
+                              {user.is_active ? "Deactivate" : "Activate"}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
