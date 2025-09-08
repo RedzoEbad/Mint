@@ -109,8 +109,10 @@ export default function CandidateDetailsPage() {
                     <StaticField label="Date of expiry" value={candidate.date_of_expiry?.slice(0,10)} />
                   </div>
 
-                  <StaticField label="Place of issue" value={candidate.place_of_issue} />
-                  <StaticField label="Passport no" value={candidate.passport_no} />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:col-span-2">
+                    <StaticField label="Place of issue" value={candidate.place_of_issue} />
+                    <StaticField label="Passport no" value={candidate.passport_no} />
+                  </div>
                 </CardContent>
               </Card>
 
@@ -159,7 +161,13 @@ export default function CandidateDetailsPage() {
                   <div className="space-y-2">
                     <div className="text-xs text-gray-500">Profile Image</div>
                     {candidate.profile_image ? (
-                      <img src={candidate.profile_image} alt="Profile" className="w-full h-32 object-cover rounded-lg border" />
+                      <div className="relative w-full max-w-[220px] aspect-[3/4] rounded-xl border bg-gray-50 overflow-hidden shadow-sm">
+                        <img
+                          src={candidate.profile_image}
+                          alt="Profile"
+                          className="absolute inset-0 h-full w-full object-cover"
+                        />
+                      </div>
                     ) : (
                       <div className="text-xs text-gray-400">No image uploaded</div>
                     )}

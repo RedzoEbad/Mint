@@ -61,15 +61,9 @@ export default function ProcessAgentDashboard() {
   const fetchStats = async () => {
     try {
       const token = getValidToken()
-      if (!token) {
-        console.warn("No valid token found for stats fetch")
-        return
-      }
-      
       const response = await fetch("/api/workflows/stats", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include",
       })
       
       if (!response.ok) {
@@ -93,15 +87,9 @@ export default function ProcessAgentDashboard() {
     try {
       setLoading(true)
       const token = getValidToken()
-      if (!token) {
-        console.warn("No valid token found for workflows fetch")
-        return
-      }
-      
       const response = await fetch("/api/workflows", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include",
       })
       
       if (!response.ok) {
@@ -126,15 +114,9 @@ export default function ProcessAgentDashboard() {
   const fetchInterviews = async () => {
     try {
       const token = getValidToken()
-      if (!token) {
-        console.warn("No valid token found for interviews fetch")
-        return
-      }
-      
       const response = await fetch("/api/interviews", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include",
       })
       
       if (!response.ok) {
@@ -157,21 +139,12 @@ export default function ProcessAgentDashboard() {
   const updateWorkflowStatus = async (workflowId: string, statusType: string, newStatus: string) => {
     try {
       const token = getValidToken()
-      if (!token) {
-        toast({
-          title: "Error",
-          description: "No valid authentication token found",
-          variant: "destructive",
-        })
-        return
-      }
-      
       const response = await fetch(`/api/workflows/${workflowId}`, {
         method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers: token
+          ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+          : { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           [statusType]: newStatus,
         }),

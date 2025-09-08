@@ -3,11 +3,13 @@ import { requireAuth } from "@/lib/api-auth"
 import { query } from "@/lib/database"
 import bcrypt from "bcryptjs"
 import { withTiming, timedQuery } from "@/lib/performance"
+import { logger, getRequestContext } from "@/lib/logger"
 
 // Dynamic route - can't use revalidate with request headers
 
 export const GET = withTiming(async (request: NextRequest) => {
   try {
+    const ctx = getRequestContext(request)
     const auth = await requireAuth(request, ["super_admin", "admin"])
     if (!auth.ok) return auth.response
 
@@ -18,15 +20,18 @@ export const GET = withTiming(async (request: NextRequest) => {
        ORDER BY created_at DESC`,
     ), "Admin Users List Query")
 
+    logger.info("Admin Users GET success", { ...ctx, userId: auth.payload.userId, count: result.rows.length })
     return NextResponse.json({ success: true, users: result.rows })
   } catch (error) {
-    console.error("Get users error:", error)
+    const ctx = getRequestContext(request)
+    logger.error("Admin Users GET error", { ...ctx, error: (error as any)?.message })
     return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 })
   }
 }, "Admin Users GET")
 
 export async function POST(request: NextRequest) {
   try {
+    const ctx = getRequestContext(request)
     const auth = await requireAuth(request, ["super_admin", "admin"])
     if (!auth.ok) return auth.response
 
@@ -55,9 +60,11 @@ export async function POST(request: NextRequest) {
       [email, hashedPassword, role, full_name, typeof is_active === "boolean" ? is_active : null],
     )
 
+    logger.info("Admin Users POST created", { ...ctx, actorId: auth.payload.userId, createdUserId: insert.rows[0].id })
     return NextResponse.json({ success: true, user: insert.rows[0] }, { status: 201 })
   } catch (error) {
-    console.error("Create user error:", error)
+    const ctx = getRequestContext(request)
+    logger.error("Admin Users POST error", { ...ctx, error: (error as any)?.message })
     return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 })
   }
 }

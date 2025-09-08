@@ -2,9 +2,11 @@ import { type NextRequest, NextResponse } from "next/server"
 import { verifyToken } from "@/lib/auth"
 import { query } from "@/lib/database"
 import bcrypt from "bcryptjs"
+import { logger, getRequestContext } from "@/lib/logger"
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
+    const ctx = getRequestContext(request)
     const authHeader = request.headers.get("authorization")
     const token = authHeader?.replace("Bearer ", "") || request.cookies.get("auth-token")?.value
     if (!token) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
@@ -70,15 +72,18 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
+    logger.info("Admin Users PUT updated", { ...ctx, actorId: user.userId, targetId: userId })
     return NextResponse.json({ success: true, user: result.rows[0] })
   } catch (error) {
-    console.error("Update user error:", error)
+    const ctx = getRequestContext(request)
+    logger.error("Admin Users PUT error", { ...ctx, error: (error as any)?.message })
     return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 })
   }
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
+    const ctx = getRequestContext(request)
     const authHeader = request.headers.get("authorization")
     const token = authHeader?.replace("Bearer ", "") || request.cookies.get("auth-token")?.value
     if (!token) return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
@@ -100,9 +105,11 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ success: false, message: "User not found" }, { status: 404 })
     }
 
+    logger.info("Admin Users DELETE deleted", { ...ctx, actorId: user.userId, targetId: userId })
     return NextResponse.json({ success: true, message: "User deleted successfully" })
   } catch (error) {
-    console.error("Delete user error:", error)
+    const ctx = getRequestContext(request)
+    logger.error("Admin Users DELETE error", { ...ctx, error: (error as any)?.message })
     return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 })
   }
 }

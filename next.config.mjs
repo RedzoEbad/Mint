@@ -20,7 +20,7 @@ const nextConfig = {
   },
   experimental: {
     optimizeCss: true,
-    optimizePackageImports: ["lucide-react", "date-fns"],
+    optimizePackageImports: process.env.NODE_ENV === "production" ? ["lucide-react", "date-fns"] : undefined,
   },
   webpack: (config, { dev, isServer }) => {
     if (!dev && !isServer) {

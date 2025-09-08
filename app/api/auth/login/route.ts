@@ -1,8 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { authenticateUser } from "@/lib/auth"
+import { logger, getRequestContext } from "@/lib/logger"
 
 export async function POST(request: NextRequest) {
   try {
+    const ctx = getRequestContext(request)
     const { email, password } = await request.json()
 
     if (!email || !password) {
@@ -12,6 +14,7 @@ export async function POST(request: NextRequest) {
     const result = await authenticateUser(email, password)
 
     if (!result) {
+      logger.warn("Login failed: invalid credentials", { ...ctx, email })
       return NextResponse.json({ success: false, message: "Invalid credentials" }, { status: 401 })
     }
 
@@ -28,9 +31,10 @@ export async function POST(request: NextRequest) {
       path: "/",
       maxAge: 7 * 24 * 60 * 60,
     })
+    logger.info("Login success", { ...ctx, userId: result.user.id, userRole: result.user.role })
     return response
   } catch (error) {
-    console.error("Login API error:", error)
+    logger.error("Login API error", { error: (error as any)?.message })
     return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 })
   }
 }
