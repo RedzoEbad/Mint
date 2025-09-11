@@ -13,6 +13,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get("status") || ""
     const category = searchParams.get("category") || ""
+    const page = Number.parseInt(searchParams.get("page") || "1")
+    const limit = Number.parseInt(searchParams.get("limit") || "10")
+    const offset = (page - 1) * limit
 
     let whereClause = "WHERE 1=1"
     const params: any[] = []
@@ -30,6 +33,8 @@ export async function GET(request: NextRequest) {
       params.push(category)
     }
 
+    const countRes = await query(`SELECT COUNT(*) FROM expenses e ${whereClause}`, params)
+
     const expensesResult = await query(
       `SELECT 
         e.*,
@@ -39,13 +44,16 @@ export async function GET(request: NextRequest) {
       LEFT JOIN users u1 ON e.created_by = u1.id
       LEFT JOIN users u2 ON e.approved_by = u2.id
       ${whereClause}
-      ORDER BY e.created_at DESC`,
-      params,
+      ORDER BY e.created_at DESC
+      LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`,
+      [...params, limit, offset],
     )
 
+    const total = Number.parseInt(countRes.rows[0].count || '0')
     return NextResponse.json({
       success: true,
       data: expensesResult.rows,
+      pagination: { page, limit, total, pages: Math.max(1, Math.ceil(total / limit)) },
     })
   } catch (error) {
     console.error("Get expenses error:", error)

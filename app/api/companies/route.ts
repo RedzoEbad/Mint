@@ -1,14 +1,18 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse, type NextRequest } from "next/server"
 import { query } from "@/lib/database"
 import { requireAuth } from "@/lib/api-auth"
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireAuth(request, ["super_admin", "process_agent"])
+    // Broad read access for listing/choosing companies
+    const auth = await requireAuth(request, ["super_admin", "process_agent", "admin", "accountant", "receptionist"])
     if (!auth.ok) return auth.response
 
     const { searchParams } = new URL(request.url)
     const search = searchParams.get("search") || ""
+    const page = Number.parseInt(searchParams.get("page") || "1")
+    const limit = Number.parseInt(searchParams.get("limit") || "12")
+    const offset = (page - 1) * limit
 
     let whereClause = "WHERE 1=1"
     const params: any[] = []
@@ -20,11 +24,21 @@ export async function GET(request: NextRequest) {
       params.push(`%${search}%`)
     }
 
-    const companiesResult = await query(`SELECT * FROM companies ${whereClause} ORDER BY created_at DESC`, params)
+    const totalRes = await query(`SELECT COUNT(*) AS total FROM companies ${whereClause}`, params)
+
+    const companiesResult = await query(
+      `SELECT id, name, contact_person, email, phone, country
+       FROM companies 
+       ${whereClause}
+       ORDER BY name ASC
+       LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`,
+      [...params, limit, offset]
+    )
 
     return NextResponse.json({
       success: true,
       data: companiesResult.rows,
+      meta: { total: Number.parseInt(totalRes.rows[0].total), page, limit },
     })
   } catch (error) {
     console.error("Get companies error:", error)

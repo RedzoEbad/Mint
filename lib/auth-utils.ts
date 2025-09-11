@@ -18,6 +18,8 @@ export interface JWTPayload {
   userId: string
   email: string
   role: string
+  full_name?: string
+  phone?: string
 }
 
 export async function generateToken(payload: JWTPayload): Promise<string> {

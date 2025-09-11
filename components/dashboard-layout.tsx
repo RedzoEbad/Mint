@@ -34,6 +34,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { routeRoleMap } from "@/lib/rbac"
 
 interface NavigationItem {
   name: string
@@ -47,13 +48,13 @@ const navigationItems: NavigationItem[] = [
     name: "Dashboard",
     href: "/dashboard",
     icon: Home,
-    roles: ["super_admin", "receptionist", "process_agent", "accountant"],
+    roles: ["super_admin", "admin", "receptionist", "process_agent", "accountant"],
   },
   {
     name: "Candidates",
     href: "/dashboard/candidates",
     icon: Users,
-    roles: ["super_admin", "receptionist", "process_agent"],
+    roles: ["super_admin", "receptionist", "process_agent", "admin"],
   },
   {
     name: "Add Candidate",
@@ -65,13 +66,19 @@ const navigationItems: NavigationItem[] = [
     name: "Companies",
     href: "/dashboard/companies",
     icon: Building2,
-    roles: ["super_admin", "process_agent"],
+    roles: ["super_admin", "process_agent", "admin"],
   },
   {
     name: "Workflows",
     href: "/dashboard/workflows",
     icon: Workflow,
-    roles: ["super_admin", "process_agent"],
+    roles: ["super_admin", "process_agent", "admin"],
+  },
+  {
+    name: "Search",
+    href: "/dashboard/search",
+    icon: Users,
+    roles: ["super_admin", "process_agent", "admin"],
   },
   {
     name: "Interviews",
@@ -83,7 +90,7 @@ const navigationItems: NavigationItem[] = [
     name: "Payments",
     href: "/dashboard/payments",
     icon: CreditCard,
-    roles: ["super_admin", "accountant", "process_agent"],
+    roles: ["super_admin", "accountant", "process_agent", "admin"],
   },
   {
     name: "Expenses",
@@ -95,7 +102,7 @@ const navigationItems: NavigationItem[] = [
     name: "Reports",
     href: "/dashboard/reports",
     icon: BarChart3,
-    roles: ["super_admin", "accountant", "process_agent"],
+    roles: ["super_admin", "admin", "accountant", "process_agent"],
   },
   {
     name: "User Management",
@@ -131,7 +138,22 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
     .join("")
     .toUpperCase()
 
-  const filteredNavigation = navigationItems.filter((item) => item.roles.includes(user.role))
+  // Filter nav by RBAC route map; if the route exists in RBAC, use it as source of truth
+  const filteredNavigation = navigationItems
+    .filter((item) => {
+      const allowed = routeRoleMap[item.href as keyof typeof routeRoleMap]
+      const roles = allowed ?? item.roles
+      // Hide items that aren't registered in RBAC at all (prevents dead links like /dashboard/companies)
+      if (!allowed && !item.roles?.length) return false
+      return roles.includes(user.role)
+    })
+
+  // Determine the deepest matching route so only one nav item is highlighted
+  const matchedItems = filteredNavigation.filter((item) => {
+    if (item.href === "/dashboard") return pathname === "/dashboard"
+    return pathname === item.href || pathname.startsWith(item.href + "/")
+  })
+  const activeHref = matchedItems.sort((a, b) => b.href.length - a.href.length)[0]?.href
 
   const roleLabels = {
     super_admin: "Super Administrator",
@@ -156,7 +178,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
       {/* Navigation */}
       <nav className="relative z-10 flex-1 space-y-1 px-2 py-4">
         {filteredNavigation.map((item) => {
-          const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href))
+          const isActive = item.href === activeHref
 
           return (
             <Link

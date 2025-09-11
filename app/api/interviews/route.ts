@@ -7,7 +7,7 @@ import { withTiming, timedQuery } from "@/lib/performance"
 
 export const GET = withTiming(async (request: NextRequest) => {
   try {
-    const auth = await requireAuth(request, ["super_admin", "process_agent"])
+    const auth = await requireAuth(request, ["super_admin", "process_agent"]) // Admin can view via reports, not here
     if (!auth.ok) return auth.response
 
     const { searchParams } = new URL(request.url)

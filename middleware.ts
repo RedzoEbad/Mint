@@ -1,23 +1,11 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { verifyToken } from "./lib/auth-utils"
+import { getToken } from "next-auth/jwt"
 import { logger } from "./lib/logger"
+import { routeRoleMap } from "./lib/rbac"
 
-// Define protected routes and their required roles (strict separation)
-const protectedRoutes = {
-  "/dashboard": ["super_admin", "admin", "receptionist", "process_agent", "accountant"],
-  "/dashboard/admin/users": ["super_admin", "admin"],
-  "/dashboard/admin": ["super_admin"],
-  "/dashboard/receptionist": ["receptionist"],
-  "/dashboard/agent": ["process_agent"],
-  "/dashboard/accounts": ["accountant"],
-  "/dashboard/users": ["super_admin", "admin"],
-  "/api/candidates": ["super_admin", "admin", "receptionist", "process_agent"],
-  "/api/admin/users": ["super_admin", "admin"],
-  "/api/users": ["super_admin","admin"],
-  "/api/payments": ["accountant", "process_agent"],
-  "/api/reports": ["accountant", "process_agent"],
-}
+// Use centralized route-to-role map
+const protectedRoutes = routeRoleMap
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -38,21 +26,15 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Get token from cookies or Authorization header
-  const token = request.cookies.get("auth-token")?.value || request.headers.get("Authorization")?.replace("Bearer ", "")
+  // Get token using NextAuth
+  const token = await getToken({ 
+    req: request, 
+    secret: process.env.NEXTAUTH_SECRET || "mint-international-secret-key-2024" 
+  })
 
   if (!token) {
     logger.info("Middleware: no token, redirecting to login", baseContext)
     // Redirect to login if no token
-    const loginUrl = new URL("/login", request.url)
-    loginUrl.searchParams.set("redirect", pathname)
-    return NextResponse.redirect(loginUrl)
-  }
-
-  const payload = await verifyToken(token)
-  if (!payload) {
-    logger.info("Middleware: invalid token, redirecting to login", baseContext)
-    // Redirect to login if token is invalid
     const loginUrl = new URL("/login", request.url)
     loginUrl.searchParams.set("redirect", pathname)
     return NextResponse.redirect(loginUrl)
@@ -66,11 +48,11 @@ export async function middleware(request: NextRequest) {
     return r
   }
 
-  const userRole = normalizeRole(payload.role)
+  const userRole = normalizeRole(token.role as string)
 
-  // Check role permissions
+  // Check role permissions (super_admin is always allowed)
   const requiredRoles = protectedRoutes[matchedRoute as keyof typeof protectedRoutes]
-  if (!requiredRoles.includes(userRole)) {
+  if (userRole !== "super_admin" && !requiredRoles.includes(userRole as any)) {
     logger.warn("Middleware: role not permitted", { ...baseContext, userRole, requiredRoles: requiredRoles.join(",") })
     // Redirect to unauthorized page
     return NextResponse.redirect(new URL("/unauthorized", request.url))
@@ -78,11 +60,11 @@ export async function middleware(request: NextRequest) {
 
   // Add user info to headers for API routes
   const response = NextResponse.next()
-  response.headers.set("x-user-id", payload.userId)
+  response.headers.set("x-user-id", token.sub!)
   response.headers.set("x-user-role", userRole)
-  response.headers.set("x-user-email", payload.email)
+  response.headers.set("x-user-email", token.email!)
 
-  logger.debug("Middleware: access granted", { ...baseContext, userId: payload.userId, userRole })
+  logger.debug("Middleware: access granted", { ...baseContext, userId: token.sub, userRole })
   return response
 }
 
@@ -91,8 +73,14 @@ export const config = {
     "/dashboard/:path*",
     "/api/candidates/:path*",
     "/api/admin/users/:path*",
+    "/api/admin/export/:path*",
+    "/api/admin/reports/:path*",
     "/api/users/:path*",
+    "/api/workflows/:path*",
+    "/api/interviews/:path*",
     "/api/payments/:path*",
     "/api/reports/:path*",
+    "/api/expenses/:path*",
+    "/api/salaries/:path*",
   ],
 }

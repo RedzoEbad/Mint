@@ -7,12 +7,15 @@ import { withTiming, timedQuery } from "@/lib/performance"
 
 export const GET = withTiming(async (request: NextRequest) => {
   try {
-    const auth = await requireAuth(request, ["super_admin", "process_agent"])
+    const auth = await requireAuth(request, ["super_admin", "process_agent", "admin"])
     if (!auth.ok) return auth.response
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get("status") || ""
     const assignedAgent = searchParams.get("assigned_agent") || ""
+    const companyId = searchParams.get("company_id") || ""
+    const search = searchParams.get("search") || ""
+    const sort = (searchParams.get("sort") || "created_at").toLowerCase()
     const page = Number.parseInt(searchParams.get("page") || "1")
     const limit = Number.parseInt(searchParams.get("limit") || "10")
     const offset = (page - 1) * limit
@@ -33,12 +36,37 @@ export const GET = withTiming(async (request: NextRequest) => {
       params.push(assignedAgent)
     }
 
+    if (companyId) {
+      paramCount++
+      whereClause += ` AND w.company_id = $${paramCount}`
+      params.push(companyId)
+    }
+
+    if (search) {
+      paramCount++
+      whereClause += ` AND (c.full_name ILIKE $${paramCount} OR c.passport_no ILIKE $${paramCount})`
+      params.push(`%${search}%`)
+    }
+
     // If user is process_agent (not super_admin), only show their assigned workflows
     if (auth.payload.role === "process_agent") {
       paramCount++
       whereClause += ` AND w.assigned_agent = $${paramCount}`
       params.push(auth.payload.userId)
     }
+
+    const totalResult = await timedQuery(
+      () => query(
+        `SELECT COUNT(*) AS total
+         FROM workflow_stages w
+         LEFT JOIN candidates c ON w.candidate_id = c.id
+         ${whereClause}`,
+        params,
+      ),
+      "Workflows Total Count Query"
+    )
+
+    const orderBy = sort === "updated_at" ? "w.updated_at DESC" : "w.created_at DESC"
 
     const workflowsResult = await timedQuery(
       () => query(
@@ -54,7 +82,7 @@ export const GET = withTiming(async (request: NextRequest) => {
         LEFT JOIN companies comp ON w.company_id = comp.id
         LEFT JOIN users u ON w.assigned_agent = u.id
         ${whereClause}
-        ORDER BY w.created_at DESC
+        ORDER BY ${orderBy}
         LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`,
         [...params, limit, offset],
       ),
@@ -64,6 +92,9 @@ export const GET = withTiming(async (request: NextRequest) => {
     return NextResponse.json({
       success: true,
       data: workflowsResult.rows,
+      total: Number.parseInt(totalResult.rows[0].total),
+      page,
+      limit,
     })
   } catch (error) {
     console.error("Get workflows error:", error)

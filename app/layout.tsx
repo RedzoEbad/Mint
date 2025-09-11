@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
 import { Analytics } from "@vercel/analytics/next"
-import { AuthProvider } from "@/components/auth-provider"
+import { Providers } from "@/components/providers"
 import { Toaster } from "@/components/ui/toaster"
 import { Suspense } from "react"
 import "./globals.css"
@@ -28,10 +28,10 @@ export default function RootLayout({
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
         {/* <link rel="manifest" href="/site.webmanifest" /> */}
         <Suspense fallback={null}>
-          <AuthProvider>
+          <Providers>
             {children}
             <Toaster />
-          </AuthProvider>
+          </Providers>
         </Suspense>
         <Analytics />
       </body>

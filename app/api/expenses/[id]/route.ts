@@ -1,36 +1,31 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/database"
-import { verifyToken } from "@/lib/auth"
+import { requireAuth } from "@/lib/api-auth"
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const authHeader = request.headers.get("Authorization")
-    const token = authHeader?.replace("Bearer ", "") || request.cookies.get("auth-token")?.value
+    const auth = await requireAuth(request, ["super_admin", "accountant"])
+    if (!auth.ok) return auth.response
 
-    if (!token) {
-      return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
+    const { status, notes } = await request.json()
+    if (!status || !["approved", "rejected", "pending"].includes(status)) {
+      return NextResponse.json({ success: false, message: "Invalid status" }, { status: 400 })
     }
-
-    const payload = verifyToken(token)
-    if (!payload || !["super_admin", "accountant"].includes(payload.role)) {
-      return NextResponse.json({ success: false, message: "Insufficient permissions" }, { status: 403 })
-    }
-
-    const { status } = await request.json()
 
     await query(
-      `UPDATE expenses SET
+      `UPDATE expenses SET 
         status = $1,
-        approved_by = $2,
+        approved_by = CASE WHEN $1 = 'approved' THEN $2 ELSE approved_by END,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = $3`,
-      [status, payload.userId, params.id],
+      [status, auth.payload.userId, params.id],
     )
 
-    return NextResponse.json({
-      success: true,
-      message: "Expense status updated successfully",
-    })
+    if (typeof notes === "string" && notes.trim().length > 0) {
+      await query(`UPDATE expenses SET description = CONCAT(COALESCE(description, ''), '\n[Note] ', $1) WHERE id = $2`, [notes, params.id])
+    }
+
+    return NextResponse.json({ success: true, message: "Expense status updated" })
   } catch (error) {
     console.error("Update expense error:", error)
     return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 })

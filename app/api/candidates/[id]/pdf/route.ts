@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server"
+import { verifyToken } from "@/lib/auth"
 import { logger, getRequestContext } from "@/lib/logger"
 
 export const dynamic = "force-dynamic"
@@ -25,13 +26,24 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
   }
 
   try {
+    // Enforce that only super_admin can generate/download PDFs
+    const authHeaderUpper = request.headers.get("Authorization")
+    const token = authHeaderUpper?.replace("Bearer ", "") || request.cookies.get("auth-token")?.value
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    const payload = await verifyToken(token)
+    const allowed = ["super_admin", "receptionist"]
+    if (!payload || !allowed.includes(payload.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
     const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || "localhost:3000"
     const proto =
       request.headers.get("x-forwarded-proto") || (host.includes("localhost") || host.includes("127.0.0.1") ? "http" : "https")
     const origin = `${proto}://${host}`
 
     // Fetch candidate data directly (avoid rendering the dashboard page entirely)
-    const authHeader = request.headers.get("authorization")
+    const authHeader = request.headers.get("authorization") || authHeaderUpper
     const cookieHeader = request.headers.get("cookie")
     const apiUrl = `${origin}/api/candidates/${encodeURIComponent(candidateId)}`
     const forwardHeaders: Record<string, string> = {}

@@ -9,6 +9,7 @@ import Link from "next/link"
 import { getValidToken } from "@/lib/token-utils"
 import { FileDown, Edit, ArrowLeft } from "lucide-react"
 import { format } from "date-fns"
+import { PageLoader } from "@/components/ui/page-loader"
 
 export default function CandidateDetailsPage() {
   const { id } = useParams<{ id: string }>()
@@ -84,11 +85,15 @@ export default function CandidateDetailsPage() {
           </div>
 
           {loading ? (
-            <div>Loading...</div>
+            <PageLoader message="Loading candidate..." />
           ) : !candidate ? (
             <div>Not found.</div>
           ) : (
             <>
+              {/* Date formatter */}
+              {/**/}
+              {/**/}
+              
               {/* Personal Information */}
               <Card>
                 <CardHeader>
@@ -103,15 +108,25 @@ export default function CandidateDetailsPage() {
                     <StaticField label="Religion" value={candidate.religion} className="flex-1" />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:col-span-2">
-                    <StaticField label="Date of birth" value={candidate.date_of_birth?.slice(0,10)} />
-                    <StaticField label="Date of issue" value={candidate.date_of_issue?.slice(0,10)} />
-                    <StaticField label="Date of expiry" value={candidate.date_of_expiry?.slice(0,10)} />
+                  <div className="grid grid-cols-1 md:grid-cols-1 gap-3 md:col-span-2">
+                    <StaticField label="Date of birth" value={candidate.date_of_birth ? format(new Date(candidate.date_of_birth), "PPP") : "-"} />
                   </div>
+                </CardContent>
+              </Card>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:col-span-2">
-                    <StaticField label="Place of issue" value={candidate.place_of_issue} />
+              {/* Passport Details */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Passport Details</CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <StaticField label="Passport no" value={candidate.passport_no} />
+                    <StaticField label="Place of issue" value={candidate.place_of_issue} />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <StaticField label="Date of issue" value={candidate.date_of_issue ? format(new Date(candidate.date_of_issue), "PPP") : "-"} />
+                    <StaticField label="Date of expiry" value={candidate.date_of_expiry ? format(new Date(candidate.date_of_expiry), "PPP") : "-"} />
                   </div>
                 </CardContent>
               </Card>

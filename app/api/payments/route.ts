@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/api-auth"
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireAuth(request, ["super_admin", "accountant", "process_agent"])
+    const auth = await requireAuth(request, ["super_admin", "accountant", "process_agent", "admin"])
     if (!auth.ok) return auth.response
 
     const { searchParams } = new URL(request.url)
@@ -30,6 +30,12 @@ export async function GET(request: NextRequest) {
       params.push(paymentType)
     }
 
+    // Count total for pagination
+    const countRes = await query(
+      `SELECT COUNT(*) FROM payments p ${whereClause.replace(/p\./g, 'p.')}`,
+      params,
+    )
+
     const paymentsResult = await query(
       `SELECT 
         p.*,
@@ -45,9 +51,11 @@ export async function GET(request: NextRequest) {
       [...params, limit, offset],
     )
 
+    const total = Number.parseInt(countRes.rows[0].count || '0')
     return NextResponse.json({
       success: true,
       data: paymentsResult.rows,
+      pagination: { page, limit, total, pages: Math.max(1, Math.ceil(total / limit)) },
     })
   } catch (error) {
     console.error("Get payments error:", error)

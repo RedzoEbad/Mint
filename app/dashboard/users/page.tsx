@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Loader2 } from "lucide-react"
+import { PageLoader } from "@/components/ui/page-loader"
 
 interface UserItem {
   id: string
@@ -182,19 +183,7 @@ export default function UsersPage() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="space-y-2">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="p-3 border rounded-md">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-2">
-                        <Skeleton className="h-4 w-40" />
-                        <Skeleton className="h-3 w-56" />
-                      </div>
-                      <Skeleton className="h-9 w-24" />
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <PageLoader message="Loading users..." />
             ) : (
               <div className="space-y-2">
                 {users.map((u) => (

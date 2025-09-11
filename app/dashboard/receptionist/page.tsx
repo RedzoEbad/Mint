@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { getValidToken } from "@/lib/token-utils"
 import { Button } from "@/components/ui/button"
@@ -8,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Dialog,
@@ -21,6 +23,7 @@ import { Users, UserPlus, Search, Eye, Edit, Trash2, Calendar, FileText, FileDow
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { EmptyCandidates, EmptySearch } from "@/components/ui/empty-state"
+import { PageLoader } from "@/components/ui/page-loader"
 
 interface Candidate {
   id: string
@@ -55,11 +58,17 @@ interface Stats {
 }
 
 export default function ReceptionistDashboard() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const search = useSearchParams()
   const [candidates, setCandidates] = useState<Candidate[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [page, setPage] = useState(1)
+  const [pages, setPages] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null)
   const [detailedCandidate, setDetailedCandidate] = useState<any>(null)
   const [hasSearched, setHasSearched] = useState(false)
@@ -70,14 +79,35 @@ export default function ReceptionistDashboard() {
     fetchCandidates()
   }, [])
 
+  // Initialize from URL
+  useEffect(() => {
+    const q = search.get("q") || ""
+    const st = search.get("status") || "all"
+    const p = Number(search.get("page") || "1")
+    const lim = Number(search.get("limit") || "10")
+    setSearchTerm(q)
+    setStatusFilter(st)
+    setPage(isNaN(p) ? 1 : p)
+    setPageSize(isNaN(lim) ? 10 : lim)
+    fetchCandidates()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   useEffect(() => {
     const delayedSearch = setTimeout(() => {
       setHasSearched(true)
       fetchCandidates()
+      const params = new URLSearchParams()
+      if (searchTerm) params.set("q", searchTerm)
+      if (statusFilter && statusFilter !== "all") params.set("status", statusFilter)
+      params.set("page", String(page))
+      params.set("limit", String(pageSize))
+      router.replace(`${pathname}?${params.toString()}`)
     }, 300)
 
     return () => clearTimeout(delayedSearch)
-  }, [searchTerm, statusFilter])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, statusFilter, page, pageSize])
 
   const fetchStats = async () => {
     try {
@@ -103,6 +133,8 @@ export default function ReceptionistDashboard() {
       const params = new URLSearchParams()
       if (searchTerm) params.append("search", searchTerm)
       if (statusFilter !== "all") params.append("status", statusFilter)
+      params.append("page", String(page))
+      params.append("limit", String(pageSize))
 
       const response = await fetch(`/api/candidates?${params}`, {
         headers: {
@@ -112,6 +144,7 @@ export default function ReceptionistDashboard() {
       const data = await response.json()
       if (data.success) {
         setCandidates(data.data)
+        if (data.pagination?.pages) setPages(data.pagination.pages)
       }
     } catch (error) {
       console.error("Error fetching candidates:", error)
@@ -138,7 +171,12 @@ export default function ReceptionistDashboard() {
           title: "Success",
           description: "Candidate deleted successfully",
         })
+        // If this was the last row on the page, go back a page and refetch
+        if (candidates.length <= 1 && page > 1) {
+          setPage(page - 1)
+        } else {
         fetchCandidates()
+        }
         fetchStats()
       } else {
         toast({
@@ -301,12 +339,25 @@ export default function ReceptionistDashboard() {
               </SelectContent>
             </Select>
           </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-gray-500">Rows:</span>
+              <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1) }}>
+                <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <Button asChild className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
             <Link href="/dashboard/candidates/add">
               <UserPlus className="mr-2 h-4 w-4" />
               Add Candidate
             </Link>
           </Button>
+          </div>
         </div>
 
         {/* Candidates Table */}
@@ -317,9 +368,7 @@ export default function ReceptionistDashboard() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              </div>
+              <PageLoader message="Loading candidates..." />
             ) : candidates.length === 0 ? (
               hasSearched ? (
                 <EmptySearch onClear={clearFilters} />
@@ -339,6 +388,16 @@ export default function ReceptionistDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  {loading && Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={`sk-${i}`}>
+                      <TableCell><div className="space-y-1"><div className="h-4 w-40 bg-gray-200 rounded animate-pulse"></div><div className="h-3 w-24 bg-gray-200 rounded animate-pulse"></div></div></TableCell>
+                      <TableCell><div className="h-4 w-28 bg-gray-200 rounded animate-pulse"></div></TableCell>
+                      <TableCell><div className="h-4 w-24 bg-gray-200 rounded animate-pulse"></div></TableCell>
+                      <TableCell><div className="h-4 w-24 bg-gray-200 rounded animate-pulse"></div></TableCell>
+                      <TableCell><div className="h-4 w-28 bg-gray-200 rounded animate-pulse"></div></TableCell>
+                      <TableCell><div className="h-8 w-48 bg-gray-200 rounded animate-pulse"></div></TableCell>
+                    </TableRow>
+                  ))}
                   {candidates.map((candidate) => (
                     <TableRow key={candidate.id}>
                       <TableCell>
@@ -597,6 +656,27 @@ export default function ReceptionistDashboard() {
             )}
           </CardContent>
         </Card>
+
+        <div className="flex justify-center">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); setPage((p) => Math.max(1, p - 1)) }} />
+              </PaginationItem>
+              {Array.from({ length: pages }).slice(0, 5).map((_, i) => {
+                const p = i + 1
+                return (
+                  <PaginationItem key={`p-${p}`}>
+                    <PaginationLink href="#" isActive={p === page} onClick={(e) => { e.preventDefault(); setPage(p) }}>{p}</PaginationLink>
+                  </PaginationItem>
+                )
+              })}
+              <PaginationItem>
+                <PaginationNext href="#" onClick={(e) => { e.preventDefault(); setPage((p) => Math.min(pages, p + 1)) }} />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
       </div>
     </DashboardLayout>
   )

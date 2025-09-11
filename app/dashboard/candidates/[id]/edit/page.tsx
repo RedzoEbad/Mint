@@ -14,6 +14,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { getValidToken } from "@/lib/token-utils"
 import { format } from "date-fns"
 import { Loader2, CalendarIcon, Plus, X, FileDown, Upload, Image as ImageIcon, Info, ArrowLeft } from "lucide-react"
+import { PageLoader } from "@/components/ui/page-loader"
+import { AspectRatio } from "@/components/ui/aspect-ratio"
 import { useToast } from "@/hooks/use-toast"
 
 export default function EditCandidatePage() {
@@ -70,7 +72,12 @@ export default function EditCandidatePage() {
             date_of_expiry: c.date_of_expiry ? new Date(c.date_of_expiry) : undefined,
           })
           setLanguages(Array.isArray(c.languages_known) ? c.languages_known : [])
-          if (c.profile_image) setProfileImagePreview(c.profile_image)
+          if (c.profile_image) {
+            const url = typeof c.profile_image === 'string' && !c.profile_image.startsWith('http') && !c.profile_image.startsWith('/')
+              ? `/${c.profile_image}`
+              : c.profile_image
+            setProfileImagePreview(url)
+          }
           if (c.cv_file) setCvFileName(c.cv_file.split("/").pop())
         }
       } catch (e) {
@@ -187,7 +194,7 @@ export default function EditCandidatePage() {
   if (loading) {
     return (
       <DashboardLayout title="Edit Candidate">
-        <div className="p-6">Loading...</div>
+        <PageLoader message="Loading candidate..." />
       </DashboardLayout>
     )
   }
@@ -228,7 +235,8 @@ export default function EditCandidatePage() {
               <Input placeholder="Religion" value={form.religion} onChange={(e) => setField("religion", e.target.value)} />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {/* Make DOB picker span full width */}
+            <div className="grid grid-cols-1 md:grid-cols-1 gap-3">
               <DateField
                 label="Date of birth"
                 date={form.date_of_birth}
@@ -337,8 +345,8 @@ export default function EditCandidatePage() {
                 <Info className="h-3.5 w-3.5" /> JPG/PNG, passport-style portrait, solid background, max 2MB
               </p>
               {profileImagePreview ? (
-                <div className="relative">
-                  <img src={profileImagePreview} alt="Profile preview" className="w-full h-32 object-cover rounded-lg border" />
+                <div className="relative w-full max-w-[220px] aspect-[3/4] rounded-xl border bg-gray-50 overflow-hidden shadow-sm">
+                  <img src={profileImagePreview} alt="Profile preview" className="absolute inset-0 h-full w-full object-cover" />
                   <Button type="button" variant="destructive" size="sm" className="absolute top-2 right-2" onClick={() => { setProfileImageFile(null); setProfileImagePreview(""); setField("profile_image", "") }}>
                     <X className="h-4 w-4" />
                   </Button>

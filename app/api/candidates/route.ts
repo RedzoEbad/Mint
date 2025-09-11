@@ -7,7 +7,7 @@ export const runtime = "nodejs"
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireAuth(request, ["super_admin", "receptionist", "process_agent"])
+    const auth = await requireAuth(request, ["super_admin", "receptionist", "process_agent", "admin"])
     if (!auth.ok) return auth.response
 
     const { searchParams } = new URL(request.url)

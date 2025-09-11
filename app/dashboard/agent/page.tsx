@@ -2,15 +2,19 @@
 
 import { useState, useEffect } from "react"
 import { DashboardLayout } from "@/components/dashboard-layout"
+import { useAuth } from "@/components/auth-provider"
 import { getValidToken } from "@/lib/token-utils"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Workflow, Calendar, CheckCircle, Clock, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { EmptyWorkflows, EmptyInterviews, EmptySearch } from "@/components/ui/empty-state"
+import WorkflowTable from "@/components/workflows/workflow-table"
+import InterviewTable from "@/components/interviews/interview-table"
 
 interface WorkflowStats {
   active: number
@@ -45,9 +49,11 @@ interface Interview {
 }
 
 export default function ProcessAgentDashboard() {
+  const { user } = useAuth()
   const [stats, setStats] = useState<WorkflowStats | null>(null)
   const [workflows, setWorkflows] = useState<WorkflowItem[]>([])
   const [interviews, setInterviews] = useState<Interview[]>([])
+  const [loadingInterviews, setLoadingInterviews] = useState<boolean>(true)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("overview")
   const { toast } = useToast()
@@ -113,6 +119,7 @@ export default function ProcessAgentDashboard() {
 
   const fetchInterviews = async () => {
     try {
+      setLoadingInterviews(true)
       const token = getValidToken()
       const response = await fetch("/api/interviews", {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -133,6 +140,8 @@ export default function ProcessAgentDashboard() {
       }
     } catch (error) {
       console.error("Error fetching interviews:", error)
+    } finally {
+      setLoadingInterviews(false)
     }
   }
 
@@ -146,7 +155,8 @@ export default function ProcessAgentDashboard() {
           : { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          [statusType]: newStatus,
+          stage: statusType.replace(/_status$/, ""),
+          status: newStatus,
         }),
       })
       
@@ -184,6 +194,29 @@ export default function ProcessAgentDashboard() {
         description: "An error occurred while updating the workflow",
         variant: "destructive",
       })
+    }
+  }
+
+  // Admin/Super Admin reset action (callable from Admin context)
+  const resetWorkflow = async (workflowId: string) => {
+    try {
+      const token = getValidToken()
+      const response = await fetch(`/api/workflows/${workflowId}`, {
+        method: "PUT",
+        headers: token ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } : { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ action: "reset" }),
+      })
+      const data = await response.json()
+      if (data.success) {
+        toast({ title: "Workflow reset", description: "All stages set to pending" })
+        fetchWorkflows()
+        fetchStats()
+      } else {
+        toast({ title: "Error", description: data.message || "Failed to reset workflow", variant: "destructive" })
+      }
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to reset workflow", variant: "destructive" })
     }
   }
 
@@ -353,83 +386,7 @@ export default function ProcessAgentDashboard() {
                 <CardDescription>Track and manage candidate workflows through all stages</CardDescription>
               </CardHeader>
               <CardContent>
-                {loading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  </div>
-                ) : workflows.length === 0 ? (
-                  <EmptyWorkflows onCreate={() => window.location.href = '/dashboard/candidates/add'} />
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Candidate</TableHead>
-                          <TableHead>Company</TableHead>
-                          <TableHead>Medical</TableHead>
-                          <TableHead>Visa</TableHead>
-                          <TableHead>Protector</TableHead>
-                          <TableHead>Passport</TableHead>
-                          <TableHead>Flight</TableHead>
-                          <TableHead>Overall</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {workflows.map((workflow) => (
-                          <TableRow key={workflow.id}>
-                            <TableCell>
-                              <div>
-                                <div className="font-medium">{workflow.candidate_name}</div>
-                                <div className="text-sm text-gray-500">{workflow.passport_no}</div>
-                              </div>
-                            </TableCell>
-                            <TableCell>{workflow.company_name}</TableCell>
-                            <TableCell>
-                              <WorkflowStageButton
-                                status={workflow.medical_status}
-                                onUpdate={(newStatus) => updateWorkflowStatus(workflow.id, "medical_status", newStatus)}
-                                stageName="Medical"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <WorkflowStageButton
-                                status={workflow.visa_status}
-                                onUpdate={(newStatus) => updateWorkflowStatus(workflow.id, "visa_status", newStatus)}
-                                stageName="Visa"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <WorkflowStageButton
-                                status={workflow.protector_status}
-                                onUpdate={(newStatus) =>
-                                  updateWorkflowStatus(workflow.id, "protector_status", newStatus)
-                                }
-                                stageName="Protector"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <WorkflowStageButton
-                                status={workflow.passport_status}
-                                onUpdate={(newStatus) =>
-                                  updateWorkflowStatus(workflow.id, "passport_status", newStatus)
-                                }
-                                stageName="Passport"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <WorkflowStageButton
-                                status={workflow.flight_status}
-                                onUpdate={(newStatus) => updateWorkflowStatus(workflow.id, "flight_status", newStatus)}
-                                stageName="Flight"
-                              />
-                            </TableCell>
-                            <TableCell>{getStatusBadge(workflow.overall_status)}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
+                <WorkflowTable />
               </CardContent>
             </Card>
           </TabsContent>
@@ -441,36 +398,7 @@ export default function ProcessAgentDashboard() {
                 <CardDescription>Schedule and manage candidate interviews</CardDescription>
               </CardHeader>
               <CardContent>
-                {interviews.length === 0 ? (
-                  <EmptyInterviews onCreate={() => window.location.href = '/dashboard/candidates/add'} />
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Candidate</TableHead>
-                        <TableHead>Company</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Result</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {interviews.map((interview) => (
-                        <TableRow key={interview.id}>
-                          <TableCell className="font-medium">{interview.candidate_name}</TableCell>
-                          <TableCell>{interview.company_name}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{interview.interview_type.toUpperCase()}</Badge>
-                          </TableCell>
-                          <TableCell>{new Date(interview.interview_date).toLocaleDateString()}</TableCell>
-                          <TableCell>{getStatusBadge(interview.interview_status)}</TableCell>
-                          <TableCell>{interview.result && getStatusBadge(interview.result)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
+                <InterviewTable />
               </CardContent>
             </Card>
           </TabsContent>
