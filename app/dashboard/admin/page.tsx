@@ -20,6 +20,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { useState, useEffect } from "react"
+import { useAuth } from "@/components/auth-provider"
 import { Users, UserPlus, Download, TrendingUp, DollarSign, Activity } from "lucide-react"
 import { EmptyUsers } from "@/components/ui/empty-state"
 
@@ -73,6 +74,7 @@ interface User {
 }
 
 export default function AdminDashboard() {
+  const { user } = useAuth()
   const [stats, setStats] = useState<AdminStats | null>(null)
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
@@ -187,7 +189,7 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <DashboardLayout title="Super Admin Dashboard">
+      <DashboardLayout title="Admin Dashboard">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="h-28 bg-white border rounded-lg animate-pulse" />
@@ -199,7 +201,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <DashboardLayout title="Super Admin Dashboard">
+    <DashboardLayout title="Admin Dashboard">
       <div className="space-y-6">
         {/* Overview Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -432,10 +434,12 @@ export default function AdminDashboard() {
           <TabsContent value="reports" className="space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-semibold">Reports & Analytics</h3>
-              <Button onClick={downloadFinancialReport}>
-                <Download className="h-4 w-4 mr-2" />
-                Download Financial Report
-              </Button>
+              {user?.role === "super_admin" ? (
+                <Button onClick={downloadFinancialReport}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Financial Report
+                </Button>
+              ) : null}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -451,11 +455,11 @@ export default function AdminDashboard() {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm">Total Revenue</span>
-                    <span className="font-semibold">${stats?.payments.total_revenue?.toLocaleString() || 0}</span>
+                    <span className="font-semibold">${Number(stats?.payments.total_revenue ?? 0).toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm">Average Payment</span>
-                    <span className="font-semibold">${stats?.payments.avg_payment?.toFixed(2) || 0}</span>
+                    <span className="font-semibold">${Number(stats?.payments.avg_payment ?? 0).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm">Pending Payments</span>

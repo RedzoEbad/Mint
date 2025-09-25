@@ -1,994 +1,479 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter, usePathname, useSearchParams } from "next/navigation"
+import { useEffect, useState } from "react"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { getValidToken } from "@/lib/token-utils"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { TrendingUp, TrendingDown, CheckCircle, XCircle, Clock, Plus, Loader2 } from "lucide-react"
-import { Skeleton } from "@/components/ui/skeleton"
+import Link from "next/link"
+import { getValidToken } from "@/lib/token-utils"
 import { useToast } from "@/hooks/use-toast"
-import { EmptyPayments, EmptySearch } from "@/components/ui/empty-state"
+import {
+  Stethoscope,
+  FileText,
+  Shield,
+  BookOpen,
+  Plane,
+  CheckCircle,
+  XCircle,
+  Clock,
+  DollarSign,
+  Filter,
+  Sparkles,
+  TrendingUp,
+} from "lucide-react"
 
-interface PaymentStats {
-  pending: number
-  today: number
-  revenue: number
-  expenses: number
-}
-
-interface Payment {
+type Payment = {
   id: string
   candidate_name: string
   passport_no: string
   payment_type: string
   amount: number
   currency: string
-  payment_status: string
-  payment_method: string
-  transaction_id: string
-  created_at: string
-  verified_by_name: string
   notes: string
+  payment_status: string
+  created_at: string
 }
 
-interface Expense {
+type SalaryRow = {
   id: string
-  category: string
-  description: string
-  amount: number
-  currency: string
-  expense_date: string
-  status: string
-  created_by_name: string
-  approved_by_name: string
-}
-
-interface SalaryItem {
-  id: string
-  user_name: string
-  basic_salary: number
-  allowances: number
-  deductions: number
+  user_id: string
+  user_name?: string
   net_salary: number
   salary_month: string
   payment_status: string
   payment_date?: string
 }
 
+type ExpenseRow = {
+  id: string
+  category: string
+  description?: string
+  amount: number
+  currency: string
+  status: string
+  expense_date: string
+}
+
 export default function AccountsDashboard() {
-  const router = useRouter()
-  const pathname = usePathname()
-  const search = useSearchParams()
-  const [stats, setStats] = useState<PaymentStats | null>(null)
-  const [payments, setPayments] = useState<Payment[]>([])
-  const [expenses, setExpenses] = useState<Expense[]>([])
-  const [salaries, setSalaries] = useState<SalaryItem[]>([])
-  const [newSalary, setNewSalary] = useState({ user_id: "", salary_month: "", basic_salary: "", allowances: "0", deductions: "0" })
-  const [loading, setLoading] = useState(true)
-  const [expensesLoading, setExpensesLoading] = useState<boolean>(false)
-  const [salariesLoading, setSalariesLoading] = useState<boolean>(false)
-  const [activeTab, setActiveTab] = useState("overview")
-  const [paymentsPage, setPaymentsPage] = useState(1)
-  const [paymentsPages, setPaymentsPages] = useState(1)
-  const [paymentsPageSize, setPaymentsPageSize] = useState(10)
-  const [expensesPage, setExpensesPage] = useState(1)
-  const [expensesPages, setExpensesPages] = useState(1)
-  const [expensesPageSize, setExpensesPageSize] = useState(10)
-  const [salariesPage, setSalariesPage] = useState(1)
-  const [salariesPages, setSalariesPages] = useState(1)
-  const [salariesPageSize, setSalariesPageSize] = useState(10)
-  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null)
-  const [paymentNotes, setPaymentNotes] = useState("")
-  const [newExpense, setNewExpense] = useState({
-    category: "",
-    description: "",
-    amount: "",
-    expense_date: "",
-  })
   const { toast } = useToast()
+  const [rows, setRows] = useState<Payment[]>([])
+  const [loading, setLoading] = useState(true)
+  const [status, setStatus] = useState<string>("")
+  const [ptype, setPtype] = useState<string>("")
+  const [tab, setTab] = useState<string>("payments")
 
-  useEffect(() => {
-    // Initialize from URL if present
-    const tab = search.get("tab") || undefined
-    const pPage = Number(search.get("pp") || "1")
-    const pSize = Number(search.get("ps") || "10")
-    const ePage = Number(search.get("ep") || "1")
-    const eSize = Number(search.get("es") || "10")
-    const sPage = Number(search.get("sp") || "1")
-    const sSize = Number(search.get("ss") || "10")
-    if (tab) setActiveTab(tab)
-    setPaymentsPage(isNaN(pPage) ? 1 : pPage)
-    setPaymentsPageSize(isNaN(pSize) ? 10 : pSize)
-    setExpensesPage(isNaN(ePage) ? 1 : ePage)
-    setExpensesPageSize(isNaN(eSize) ? 10 : eSize)
-    setSalariesPage(isNaN(sPage) ? 1 : sPage)
-    setSalariesPageSize(isNaN(sSize) ? 10 : sSize)
+  const [salaries, setSalaries] = useState<SalaryRow[]>([])
+  const [salariesLoading, setSalariesLoading] = useState(false)
+  const [expenses, setExpenses] = useState<ExpenseRow[]>([])
+  const [expensesLoading, setExpensesLoading] = useState(false)
+  const [metrics, setMetrics] = useState<{ pendingPayments: number; expensesCount: number; salariesCount: number }>({ pendingPayments: 0, expensesCount: 0, salariesCount: 0 })
 
-    fetchStats()
-    fetchPayments()
-    fetchExpenses()
-    fetchSalaries()
-  }, [])
-
-  // Sync URL with state
-  useEffect(() => {
-    const params = new URLSearchParams(search.toString())
-    params.set("tab", activeTab)
-    params.set("pp", String(paymentsPage))
-    params.set("ps", String(paymentsPageSize))
-    params.set("ep", String(expensesPage))
-    params.set("es", String(expensesPageSize))
-    params.set("sp", String(salariesPage))
-    params.set("ss", String(salariesPageSize))
-    const url = `${pathname}?${params.toString()}`
-    router.replace(url)
-  }, [activeTab, paymentsPage, paymentsPageSize, expensesPage, expensesPageSize, salariesPage, salariesPageSize])
-
-  useEffect(() => { fetchPayments() }, [paymentsPage, paymentsPageSize])
-  useEffect(() => { fetchExpenses() }, [expensesPage, expensesPageSize])
-  useEffect(() => { fetchSalaries() }, [salariesPage, salariesPageSize])
-
-  const fetchStats = async () => {
-    try {
-      const token = getValidToken()
-      const response = await fetch("/api/payments/stats", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-      const data = await response.json()
-      if (data.success) {
-        setStats(data.data)
-      }
-    } catch (error) {
-      console.error("Error fetching stats:", error)
-    }
-  }
-
-  const fetchPayments = async () => {
+  const load = async () => {
     try {
       setLoading(true)
       const token = getValidToken()
-      const response = await fetch(`/api/payments?page=${paymentsPage}&limit=${paymentsPageSize}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const qs = new URLSearchParams()
+      if (status) qs.set("status", status)
+      if (ptype) qs.set("payment_type", ptype)
+      const res = await fetch(`/api/payments?${qs.toString()}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include",
       })
-      const data = await response.json()
-      if (data.success) {
-        setPayments(data.data)
-        if (data.pagination?.pages) setPaymentsPages(data.pagination.pages)
-      }
-    } catch (error) {
-      console.error("Error fetching payments:", error)
+      const data = await res.json()
+      if (res.ok && data.success) setRows(data.data || [])
+    } catch {
     } finally {
       setLoading(false)
     }
   }
 
-  const fetchExpenses = async () => {
-    try {
-      setExpensesLoading(true)
-      const token = getValidToken()
-      const response = await fetch(`/api/expenses?page=${expensesPage}&limit=${expensesPageSize}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-      const data = await response.json()
-      if (data.success) {
-        setExpenses(data.data)
-        if (data.pagination?.pages) setExpensesPages(data.pagination.pages)
-      }
-    } catch (error) {
-      console.error("Error fetching expenses:", error)
-    } finally {
-      setExpensesLoading(false)
-    }
-  }
+  useEffect(() => {
+    load()
+  }, [status, ptype])
 
-  const fetchSalaries = async () => {
-    try {
-      setSalariesLoading(true)
-      const token = getValidToken()
-      const response = await fetch(`/api/salaries?page=${salariesPage}&limit=${salariesPageSize}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      const data = await response.json()
-      if (data.success) {
-        setSalaries(data.data)
-        if (data.pagination?.pages) setSalariesPages(data.pagination.pages)
+  useEffect(() => {
+    const token = getValidToken()
+    ;(async () => {
+      try {
+        setSalariesLoading(true)
+        const res = await fetch(`/api/salaries`, { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: "include" })
+        const data = await res.json().catch(() => ({}))
+        if (res.ok && data.success) setSalaries(data.data || [])
+      } finally {
+        setSalariesLoading(false)
       }
-    } catch (e) {
-      console.error("Error fetching salaries:", e)
-    } finally {
-      setSalariesLoading(false)
-    }
-  }
+    })()
+    ;(async () => {
+      try {
+        setExpensesLoading(true)
+        const res = await fetch(`/api/expenses`, { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: "include" })
+        const data = await res.json().catch(() => ({}))
+        if (res.ok && data.success) setExpenses(data.data || [])
+      } finally {
+        setExpensesLoading(false)
+      }
+    })()
+    ;(async () => {
+      try {
+        const token2 = getValidToken()
+        const [pRes, eRes, sRes] = await Promise.all([
+          fetch(`/api/payments?status=pending`, { headers: token2 ? { Authorization: `Bearer ${token2}` } : {}, credentials: "include" }),
+          fetch(`/api/expenses`, { headers: token2 ? { Authorization: `Bearer ${token2}` } : {}, credentials: "include" }),
+          fetch(`/api/salaries`, { headers: token2 ? { Authorization: `Bearer ${token2}` } : {}, credentials: "include" }),
+        ])
+        const [p, e, s] = await Promise.all([pRes.json().catch(() => ({})), eRes.json().catch(() => ({})), sRes.json().catch(() => ({}))])
+        setMetrics({ pendingPayments: (p.data || []).length || 0, expensesCount: (e.data || []).length || 0, salariesCount: (s.data || []).length || 0 })
+      } catch {}
+    })()
+  }, [])
 
-  const markSalaryStatus = async (salaryId: string, payment_status: string) => {
+  const setStatusOn = async (id: string, newStatus: string) => {
     try {
       const token = getValidToken()
-      const res = await fetch(`/api/salaries/${salaryId}`, {
+      const res = await fetch(`/api/payments/${id}`, {
         method: "PUT",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ payment_status }),
+        headers: token
+          ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+          : { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ payment_status: newStatus }),
       })
-      const data = await res.json()
-      if (data.success) {
-        toast({ title: "Success", description: "Salary status updated" })
-        fetchSalaries()
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && data.success) {
+        toast({ title: "Updated" })
+        load()
       } else {
-        toast({ title: "Error", description: data.message || "Failed to update salary", variant: "destructive" })
+        toast({ title: "Failed", description: data?.message || `HTTP ${res.status}`, variant: "destructive" })
       }
-    } catch (e) {
-      toast({ title: "Error", description: "Failed to update salary", variant: "destructive" })
-    }
+    } catch {}
   }
 
-  const createSalary = async () => {
-    try {
-      const token = getValidToken()
-      const res = await fetch(`/api/salaries`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: newSalary.user_id,
-          salary_month: newSalary.salary_month,
-          basic_salary: Number(newSalary.basic_salary || 0),
-          allowances: Number(newSalary.allowances || 0),
-          deductions: Number(newSalary.deductions || 0),
-        }),
-      })
-      const data = await res.json()
-      if (data.success) {
-        toast({ title: "Success", description: "Salary created" })
-        setNewSalary({ user_id: "", salary_month: "", basic_salary: "", allowances: "0", deductions: "0" })
-        fetchSalaries()
-      } else {
-        toast({ title: "Error", description: data.message || "Failed to create salary", variant: "destructive" })
-      }
-    } catch (e) {
-      toast({ title: "Error", description: "Failed to create salary", variant: "destructive" })
+  const statusBadge = (s: string) => {
+    const config = {
+      paid: {
+        className: "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg shadow-emerald-500/25",
+        icon: CheckCircle,
+      },
+      rejected: {
+        className: "bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-lg shadow-red-500/25",
+        icon: XCircle,
+      },
+      pending: {
+        className: "bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/25",
+        icon: Clock,
+      },
     }
-  }
 
-  const updatePaymentStatus = async (paymentId: string, status: string) => {
-    try {
-      const token = getValidToken()
-      const response = await fetch(`/api/payments/${paymentId}`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          payment_status: status,
-          notes: paymentNotes,
-        }),
-      })
-      const data = await response.json()
+    const { className, icon: Icon } = config[s as keyof typeof config] || config.pending
 
-      if (data.success) {
-        toast({
-          title: "Success",
-          description: "Payment status updated successfully",
-        })
-        fetchPayments()
-        fetchStats()
-        setSelectedPayment(null)
-        setPaymentNotes("")
-      } else {
-        toast({
-          title: "Error",
-          description: data.message || "Failed to update payment status",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "An error occurred while updating the payment",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const createExpense = async () => {
-    try {
-      const token = getValidToken()
-      const response = await fetch("/api/expenses", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ...newExpense,
-          amount: Number.parseFloat(newExpense.amount),
-          currency: "SAR",
-        }),
-      })
-      const data = await response.json()
-
-      if (data.success) {
-        toast({
-          title: "Success",
-          description: "Expense created successfully",
-        })
-        fetchExpenses()
-        fetchStats()
-        setNewExpense({
-          category: "",
-          description: "",
-          amount: "",
-          expense_date: "",
-        })
-      } else {
-        toast({
-          title: "Error",
-          description: data.message || "Failed to create expense",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "An error occurred while creating the expense",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const updateExpenseStatus = async (expenseId: string, status: string) => {
-    try {
-      const token = getValidToken()
-      const response = await fetch(`/api/expenses/${expenseId}`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status }),
-      })
-      const data = await response.json()
-
-      if (data.success) {
-        toast({
-          title: "Success",
-          description: "Expense status updated successfully",
-        })
-        fetchExpenses()
-        fetchStats()
-      } else {
-        toast({
-          title: "Error",
-          description: data.message || "Failed to update expense status",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "An error occurred while updating the expense",
-        variant: "destructive",
-      })
-    }
-  }
-
-  const getStatusBadge = (status: string) => {
-    const variants = {
-      pending: "bg-yellow-100 text-yellow-800",
-      paid: "bg-green-100 text-green-800",
-      rejected: "bg-red-100 text-red-800",
-      approved: "bg-green-100 text-green-800",
-      refunded: "bg-blue-100 text-blue-800",
-    }
     return (
-      <Badge className={variants[status as keyof typeof variants] || "bg-gray-100 text-gray-800"}>
-        {status.toUpperCase()}
+      <Badge className={`${className} flex items-center gap-1 px-3 py-1`}>
+        <Icon className="w-3 h-3" />
+        <Sparkles className="w-2 h-2 opacity-60" />
+        {s.toUpperCase()}
       </Badge>
     )
   }
 
-  const formatCurrency = (amount: number, currency = "SAR") => {
-    return new Intl.NumberFormat("en-SA", {
-      style: "currency",
-      currency: currency,
-    }).format(amount)
+  const getPaymentTypeIcon = (type: string) => {
+    const icons = {
+      medical: Stethoscope,
+      visa: FileText,
+      protector: Shield,
+      passport: BookOpen,
+      flight: Plane,
+    }
+    const Icon = icons[type as keyof typeof icons] || DollarSign
+    return <Icon className="w-4 h-4" />
   }
 
   return (
-    <DashboardLayout title="Accounts Dashboard">
+    <DashboardLayout title="Accounts">
       <div className="space-y-6">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending Payments</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">{stats?.pending || 0}</div>
+        {/* Overview hero & quick links */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card className="border-0 shadow-md bg-gradient-to-br from-blue-50 to-indigo-50">
+            <CardContent className="p-5">
+              <div className="text-xs text-slate-600 mb-1">Pending Payments</div>
+              <div className="text-2xl font-semibold">{metrics.pendingPayments}</div>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Approved Today</CardTitle>
-              <CheckCircle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">{stats?.today || 0}</div>
+          <Card className="border-0 shadow-md bg-gradient-to-br from-emerald-50 to-teal-50">
+            <CardContent className="p-5">
+              <div className="text-xs text-slate-600 mb-1">Salaries Records</div>
+              <div className="text-2xl font-semibold">{metrics.salariesCount}</div>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{formatCurrency(stats?.revenue || 0)}</div>
+          <Card className="border-0 shadow-md bg-gradient-to-br from-amber-50 to-orange-50">
+            <CardContent className="p-5">
+              <div className="text-xs text-slate-600 mb-1">Expenses Records</div>
+              <div className="text-2xl font-semibold">{metrics.expensesCount}</div>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
-              <TrendingDown className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-600">{formatCurrency(stats?.expenses || 0)}</div>
+          <Card className="border-0 shadow-md">
+            <CardContent className="p-5 flex flex-col gap-2">
+              <div className="text-xs text-slate-600">Quick Links</div>
+              <div className="flex flex-wrap gap-2">
+                <Link href="/dashboard/payments" className="px-3 py-2 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700">Payments</Link>
+                <Link href="/dashboard/accounts/salaries" className="px-3 py-2 text-sm rounded-md bg-emerald-600 text-white hover:bg-emerald-700">Salaries</Link>
+                <Link href="/dashboard/accounts/expenses" className="px-3 py-2 text-sm rounded-md bg-amber-600 text-white hover:bg-amber-700">Expenses</Link>
+                <Link href="/dashboard/accounts/reports" className="px-3 py-2 text-sm rounded-md bg-slate-800 text-white hover:bg-slate-900">Accounts Report</Link>
+              </div>
             </CardContent>
           </Card>
         </div>
-
-        {/* Main Content Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
+        <Tabs value={tab} onValueChange={setTab}>
+          <TabsList className="grid grid-cols-3 w-full">
             <TabsTrigger value="payments">Payments</TabsTrigger>
-            <TabsTrigger value="expenses">Expenses</TabsTrigger>
             <TabsTrigger value="salaries">Salaries</TabsTrigger>
+            <TabsTrigger value="expenses">Expenses</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Recent Payments */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Payments</CardTitle>
-                  <CardDescription>Latest payment requests</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {loading ? (
-                    <div className="flex items-center justify-center py-10 text-gray-600">
-                      <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading recent payments...
-                    </div>
-                  ) : (
-                  <div className="space-y-4">
-                    {payments.slice(0, 5).map((payment) => (
-                      <div key={payment.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div>
-                          <p className="font-medium">{payment.candidate_name}</p>
-                          <p className="text-sm text-gray-500">
-                            {payment.payment_type} - {formatCurrency(payment.amount, payment.currency)}
-                          </p>
-                        </div>
-                        {getStatusBadge(payment.payment_status)}
-                      </div>
-                    ))}
+          <TabsContent value="payments">
+            <Card className="bg-gradient-to-br from-white to-slate-50 border-0 shadow-xl shadow-slate-200/50">
+              <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-t-lg">
+                <CardTitle className="flex items-center gap-3 text-xl">
+                  <div className="p-4 bg-white/20 rounded-lg backdrop-blur-sm">
+                    <TrendingUp className="w-4 h-4" />
                   </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Recent Expenses */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Expenses</CardTitle>
-                  <CardDescription>Latest expense records</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {!expenses.length && loading ? (
-                    <div className="flex items-center justify-center py-10 text-gray-600">
-                      <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading recent expenses...
-                    </div>
-                  ) : (
-                  <div className="space-y-4">
-                    {expenses.slice(0, 5).map((expense) => (
-                      <div key={expense.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div>
-                          <p className="font-medium">{expense.category}</p>
-                          <p className="text-sm text-gray-500">
-                            {expense.description} - {formatCurrency(expense.amount, expense.currency)}
-                          </p>
-                        </div>
-                        {getStatusBadge(expense.status)}
-                      </div>
-                    ))}
-                  </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="payments" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Payment Management</CardTitle>
-                <CardDescription>Review and approve payment requests</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-end pb-3">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-gray-500">Rows:</span>
-                    <Select value={String(paymentsPageSize)} onValueChange={(v) => { setPaymentsPageSize(Number(v)); setPaymentsPage(1) }}>
-                      <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="10">10</SelectItem>
-                        <SelectItem value="20">20</SelectItem>
-                        <SelectItem value="50">50</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                {loading ? (
-                  <div className="flex items-center justify-center py-16 text-gray-600">
-                    <div className="flex items-center gap-3">
-                      <Loader2 className="h-6 w-6 animate-spin" />
-                      <span>Loading payments...</span>
-                    </div>
-                  </div>
-                ) : payments.length === 0 ? (
-                  <EmptyPayments onCreate={() => window.location.href = '/dashboard/candidates/add'} />
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Candidate</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {loading && Array.from({ length: 5 }).map((_, i) => (
-                        <TableRow key={`sk-${i}`}>
-                          <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                          <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                          <TableCell><Skeleton className="h-8 w-24" /></TableCell>
-                        </TableRow>
-                      ))}
-                      {payments.map((payment) => (
-                        <TableRow key={payment.id}>
-                          <TableCell>
-                            <div>
-                              <div className="font-medium">{payment.candidate_name}</div>
-                              <div className="text-sm text-gray-500">{payment.passport_no}</div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{payment.payment_type.toUpperCase()}</Badge>
-                          </TableCell>
-                          <TableCell className="font-mono">
-                            {formatCurrency(payment.amount, payment.currency)}
-                          </TableCell>
-                          <TableCell>{getStatusBadge(payment.payment_status)}</TableCell>
-                          <TableCell>{new Date(payment.created_at).toLocaleDateString()}</TableCell>
-                          <TableCell>
-                            {payment.payment_status === "pending" && (
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button variant="outline" size="sm" onClick={() => setSelectedPayment(payment)}>
-                                    Review
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent>
-                                  <DialogHeader>
-                                    <DialogTitle>Review Payment</DialogTitle>
-                                    <DialogDescription>Approve or reject this payment request</DialogDescription>
-                                  </DialogHeader>
-                                  <div className="space-y-4">
-                                    <div className="grid grid-cols-2 gap-4">
-                                      <div>
-                                        <Label>Candidate</Label>
-                                        <p className="text-sm">{payment.candidate_name}</p>
-                                      </div>
-                                      <div>
-                                        <Label>Amount</Label>
-                                        <p className="text-sm font-mono">
-                                          {formatCurrency(payment.amount, payment.currency)}
-                                        </p>
-                                      </div>
-                                      <div>
-                                        <Label>Type</Label>
-                                        <p className="text-sm">{payment.payment_type}</p>
-                                      </div>
-                                      <div>
-                                        <Label>Transaction ID</Label>
-                                        <p className="text-sm font-mono">{payment.transaction_id}</p>
-                                      </div>
-                                    </div>
-                                    <div>
-                                      <Label htmlFor="notes">Notes</Label>
-                                      <Textarea
-                                        id="notes"
-                                        value={paymentNotes}
-                                        onChange={(e) => setPaymentNotes(e.target.value)}
-                                        placeholder="Add verification notes..."
-                                      />
-                                    </div>
-                                    <div className="flex gap-2">
-                                      <Button
-                                        onClick={() => updatePaymentStatus(payment.id, "paid")}
-                                        className="bg-green-600 hover:bg-green-700"
-                                      >
-                                        <CheckCircle className="mr-2 h-4 w-4" />
-                                        Approve
-                                      </Button>
-                                      <Button
-                                        onClick={() => updatePaymentStatus(payment.id, "rejected")}
-                                        variant="destructive"
-                                      >
-                                        <XCircle className="mr-2 h-4 w-4" />
-                                        Reject
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </DialogContent>
-                              </Dialog>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-            <div className="flex justify-center">
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); setPaymentsPage((p) => Math.max(1, p - 1)) }} />
-                  </PaginationItem>
-                  {Array.from({ length: paymentsPages }).slice(0, 5).map((_, i) => {
-                    const p = i + 1
-                    return (
-                      <PaginationItem key={`pay-${p}`}>
-                        <PaginationLink href="#" isActive={p === paymentsPage} onClick={(e) => { e.preventDefault(); setPaymentsPage(p) }}>{p}</PaginationLink>
-                      </PaginationItem>
-                    )
-                  })}
-                  <PaginationItem>
-                    <PaginationNext href="#" onClick={(e) => { e.preventDefault(); setPaymentsPage((p) => Math.min(paymentsPages, p + 1)) }} />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="expenses" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-lg font-semibold">Expense Management</h3>
-                <p className="text-sm text-gray-500">Track and manage organizational expenses</p>
+                  Payment Requests
+                  <Sparkles className="w-4 h-4 opacity-70" />
+                </CardTitle>
+          </CardHeader>
+              <CardContent className="p-6">
+            <div className="bg-gradient-to-r from-slate-50 to-blue-50 p-4 rounded-xl border border-slate-200 mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Filter className="w-4 h-4 text-slate-600" />
+                <span className="text-sm font-medium text-slate-700">Filter Options</span>
               </div>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Expense
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Add New Expense</DialogTitle>
-                    <DialogDescription>Create a new expense record</DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="category">Category</Label>
-                      <Select
-                        value={newExpense.category}
-                        onValueChange={(value) => setNewExpense({ ...newExpense, category: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="office">Office Supplies</SelectItem>
-                          <SelectItem value="travel">Travel</SelectItem>
-                          <SelectItem value="utilities">Utilities</SelectItem>
-                          <SelectItem value="marketing">Marketing</SelectItem>
-                          <SelectItem value="legal">Legal</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="description">Description</Label>
-                      <Input
-                        id="description"
-                        value={newExpense.description}
-                        onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })}
-                        placeholder="Expense description"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="amount">Amount (SAR)</Label>
-                      <Input
-                        id="amount"
-                        type="number"
-                        value={newExpense.amount}
-                        onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
-                        placeholder="0.00"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="expense_date">Expense Date</Label>
-                      <Input
-                        id="expense_date"
-                        type="date"
-                        value={newExpense.expense_date}
-                        onChange={(e) => setNewExpense({ ...newExpense, expense_date: e.target.value })}
-                      />
-                    </div>
-                    <Button onClick={createExpense} className="w-full">
-                      Create Expense
-                    </Button>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                  <div className="text-sm font-medium text-slate-700 mb-2 flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    Status
                   </div>
-                </DialogContent>
-              </Dialog>
+                <Select value={status || "all"} onValueChange={(v) => setStatus(v === "all" ? "" : v)}>
+                    <SelectTrigger className="w-full bg-white border-slate-300 focus:border-blue-500 focus:ring-blue-500/20">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                  <div className="text-sm font-medium text-slate-700 mb-2 flex items-center gap-1">
+                    <DollarSign className="w-3 h-3" />
+                    Type
+                  </div>
+                <Select value={ptype || "all"} onValueChange={(v) => setPtype(v === "all" ? "" : v)}>
+                    <SelectTrigger className="w-full bg-white border-slate-300 focus:border-blue-500 focus:ring-blue-500/20">
+                      <SelectValue placeholder="All" />
+                    </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="medical">Medical</SelectItem>
+                    <SelectItem value="visa">Visa</SelectItem>
+                    <SelectItem value="protector">Protector</SelectItem>
+                    <SelectItem value="passport">Passport</SelectItem>
+                    <SelectItem value="flight">Flight</SelectItem>
+                  </SelectContent>
+                </Select>
+                </div>
+              </div>
             </div>
 
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-end pb-3">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-gray-500">Rows:</span>
-                    <Select value={String(expensesPageSize)} onValueChange={(v) => { setExpensesPageSize(Number(v)); setExpensesPage(1) }}>
-                      <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="10">10</SelectItem>
-                        <SelectItem value="20">20</SelectItem>
-                        <SelectItem value="50">50</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <Table>
-                  <TableHeader>
+            <div className="rounded-xl border border-slate-200 overflow-hidden shadow-lg bg-white">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
+                    <TableHead className="font-semibold text-slate-700">Candidate</TableHead>
+                    <TableHead className="font-semibold text-slate-700">Passport</TableHead>
+                    <TableHead className="font-semibold text-slate-700">Type</TableHead>
+                    <TableHead className="font-semibold text-slate-700">Amount</TableHead>
+                    <TableHead className="font-semibold text-slate-700">Notes</TableHead>
+                    <TableHead className="font-semibold text-slate-700">Status</TableHead>
+                    <TableHead className="text-right font-semibold text-slate-700">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
                     <TableRow>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableCell colSpan={7} className="text-center py-8">
+                        <div className="flex items-center justify-center gap-2 text-slate-500">
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></div>
+                          Loading payments...
+                        </div>
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {expensesLoading && Array.from({ length: 5 }).map((_, i) => (
-                      <TableRow key={`sk-exp-${i}`}>
-                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                        <TableCell><Skeleton className="h-8 w-32" /></TableCell>
-                      </TableRow>
-                    ))}
-                    {expenses.map((expense) => (
-                      <TableRow key={expense.id}>
+                  ) : (
+                    rows.map((r) => (
+                      <TableRow key={r.id} className="hover:bg-slate-50/50 transition-colors border-b border-slate-100">
+                        <TableCell className="font-medium text-slate-900">{r.candidate_name}</TableCell>
+                        <TableCell className="font-mono text-sm text-slate-600">{r.passport_no}</TableCell>
                         <TableCell>
-                          <Badge variant="outline">{expense.category.toUpperCase()}</Badge>
+                          <div className="flex items-center gap-2">
+                            <div className="p-1 bg-slate-100 rounded">{getPaymentTypeIcon(r.payment_type)}</div>
+                            <span className="capitalize font-medium text-slate-700">{r.payment_type}</span>
+                          </div>
                         </TableCell>
-                        <TableCell>{expense.description}</TableCell>
-                        <TableCell className="font-mono">{formatCurrency(expense.amount, expense.currency)}</TableCell>
-                        <TableCell>{new Date(expense.expense_date).toLocaleDateString()}</TableCell>
-                        <TableCell>{getStatusBadge(expense.status)}</TableCell>
-                        <TableCell>
-                          {expense.status === "pending" && (
-                            <div className="flex gap-2">
+                        <TableCell className="font-semibold text-slate-900">
+                          <div className="flex items-center gap-1">
+                            <DollarSign className="w-3 h-3 text-green-600" />
+                            {r.amount} {r.currency}
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-[320px] truncate text-slate-600" title={r.notes}>
+                          {r.notes || "—"}
+                        </TableCell>
+                        <TableCell>{statusBadge(r.payment_status)}</TableCell>
+                        <TableCell className="text-right min-w-[180px]">
+                          {r.payment_status === "pending" ? (
+                            <div className="flex items-center justify-end gap-2">
                               <Button
                                 size="sm"
-                                onClick={() => updateExpenseStatus(expense.id, "approved")}
-                                className="bg-green-600 hover:bg-green-700"
+                                className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-lg shadow-emerald-500/25 transition-all duration-200 hover:shadow-emerald-500/40"
+                                onClick={() => setStatusOn(r.id, "paid")}
                               >
+                                <CheckCircle className="w-3 h-3 mr-1" />
                                 Approve
                               </Button>
                               <Button
                                 size="sm"
-                                variant="destructive"
-                                onClick={() => updateExpenseStatus(expense.id, "rejected")}
+                                className="bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white shadow-lg shadow-red-500/25 transition-all duration-200 hover:shadow-red-500/40"
+                                onClick={() => setStatusOn(r.id, "rejected")}
                               >
+                                <XCircle className="w-3 h-3 mr-1" />
                                 Reject
                               </Button>
                             </div>
+                          ) : (
+                            <span className="text-xs text-slate-500 italic">No actions</span>
                           )}
                         </TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-            <div className="flex justify-center">
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); setExpensesPage((p) => Math.max(1, p - 1)) }} />
-                  </PaginationItem>
-                  {Array.from({ length: expensesPages }).slice(0, 5).map((_, i) => {
-                    const p = i + 1
-                    return (
-                      <PaginationItem key={`exp-${p}`}>
-                        <PaginationLink href="#" isActive={p === expensesPage} onClick={(e) => { e.preventDefault(); setExpensesPage(p) }}>{p}</PaginationLink>
-                      </PaginationItem>
-                    )
-                  })}
-                  <PaginationItem>
-                    <PaginationNext href="#" onClick={(e) => { e.preventDefault(); setExpensesPage((p) => Math.min(expensesPages, p + 1)) }} />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
             </div>
+            <div className="mt-3 text-xs text-slate-500">Financial statements download is restricted for Accounts role.</div>
+          </CardContent>
+        </Card>
           </TabsContent>
 
-          <TabsContent value="salaries" className="space-y-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Salaries</CardTitle>
-                  <CardDescription>Manage employee salaries and payment status</CardDescription>
-                </div>
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700">Create Salary</Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Create Salary</DialogTitle>
-                      <DialogDescription>Add a new salary record</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="salary_user">User ID</Label>
-                        <Input id="salary_user" value={newSalary.user_id} onChange={(e) => setNewSalary({ ...newSalary, user_id: e.target.value })} placeholder="UUID of employee" />
-                      </div>
-                      <div>
-                        <Label htmlFor="salary_month">Salary Month</Label>
-                        <Input id="salary_month" type="month" value={newSalary.salary_month} onChange={(e) => setNewSalary({ ...newSalary, salary_month: e.target.value + '-01' })} />
-                      </div>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div>
-                          <Label htmlFor="basic_salary">Basic</Label>
-                          <Input id="basic_salary" type="number" value={newSalary.basic_salary} onChange={(e) => setNewSalary({ ...newSalary, basic_salary: e.target.value })} />
-                        </div>
-                        <div>
-                          <Label htmlFor="allowances">Allowances</Label>
-                          <Input id="allowances" type="number" value={newSalary.allowances} onChange={(e) => setNewSalary({ ...newSalary, allowances: e.target.value })} />
-                        </div>
-                        <div>
-                          <Label htmlFor="deductions">Deductions</Label>
-                          <Input id="deductions" type="number" value={newSalary.deductions} onChange={(e) => setNewSalary({ ...newSalary, deductions: e.target.value })} />
-                        </div>
-                      </div>
-                      <Button onClick={createSalary} className="w-full">Save</Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-end pb-3">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-gray-500">Rows:</span>
-                    <Select value={String(salariesPageSize)} onValueChange={(v) => { setSalariesPageSize(Number(v)); setSalariesPage(1) }}>
-                      <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="10">10</SelectItem>
-                        <SelectItem value="20">20</SelectItem>
-                        <SelectItem value="50">50</SelectItem>
-                      </SelectContent>
-                    </Select>
+          <TabsContent value="salaries">
+            <Card className="bg-gradient-to-br from-white to-emerald-50 border-0 shadow-xl shadow-emerald-200/50">
+              <CardHeader className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-t-lg">
+                <CardTitle className="flex items-center gap-3 text-xl">
+                  <div className="p-4 bg-white/20 rounded-lg backdrop-blur-sm">
+                    <DollarSign className="w-4 h-4" />
                   </div>
+                  Salaries
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="rounded-xl border border-emerald-200 overflow-hidden shadow-lg bg-white">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-gradient-to-r from-emerald-50 to-emerald-100 border-b border-emerald-200">
+                        <TableHead className="font-semibold text-slate-700">Employee</TableHead>
+                        <TableHead className="font-semibold text-slate-700">Month</TableHead>
+                        <TableHead className="font-semibold text-slate-700">Net Salary</TableHead>
+                        <TableHead className="font-semibold text-slate-700">Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {salariesLoading ? (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center py-8 text-slate-500">Loading salaries...</TableCell>
+                        </TableRow>
+                      ) : (
+                        salaries.map((s) => (
+                          <TableRow key={s.id}>
+                            <TableCell className="font-medium text-slate-900">{s.user_name || s.user_id}</TableCell>
+                            <TableCell className="font-mono text-sm text-slate-600">{s.salary_month}</TableCell>
+                            <TableCell className="font-semibold text-slate-900">{s.net_salary}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {statusBadge((s.payment_status || "pending") as any)}
+                                <Button size="sm" variant="outline" onClick={async () => {
+                                  const token = getValidToken()
+                                  const res = await fetch(`/api/salaries/${s.id}`, { method: "PUT", headers: token ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } : { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ payment_status: s.payment_status === 'paid' ? 'pending' : 'paid' }) })
+                                  const data = await res.json().catch(() => ({}))
+                                  if (res.ok && data.success) { toast({ title: "Updated" }); setSalaries((arr) => arr.map((x) => x.id === s.id ? { ...x, payment_status: (s.payment_status === 'paid' ? 'pending' : 'paid') } : x)) } else { toast({ title: "Failed", description: data?.message || "", variant: "destructive" }) }
+                                }}>Toggle</Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
                 </div>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Employee</TableHead>
-                      <TableHead>Month</TableHead>
-                      <TableHead>Basic</TableHead>
-                      <TableHead>Allowances</TableHead>
-                      <TableHead>Deductions</TableHead>
-                      <TableHead>Net</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {salariesLoading && Array.from({ length: 5 }).map((_, i) => (
-                      <TableRow key={`sk-sal-${i}`}>
-                        <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                        <TableCell><Skeleton className="h-8 w-32" /></TableCell>
-                      </TableRow>
-                    ))}
-                    {salaries.map((s) => (
-                      <TableRow key={s.id}>
-                        <TableCell>{s.user_name}</TableCell>
-                        <TableCell>{new Date(s.salary_month).toLocaleDateString()}</TableCell>
-                        <TableCell className="font-mono">{formatCurrency(s.basic_salary)}</TableCell>
-                        <TableCell className="font-mono">{formatCurrency(s.allowances)}</TableCell>
-                        <TableCell className="font-mono">{formatCurrency(s.deductions)}</TableCell>
-                        <TableCell className="font-mono">{formatCurrency(s.net_salary)}</TableCell>
-                        <TableCell>{getStatusBadge(s.payment_status)}</TableCell>
-                        <TableCell>
-                          {s.payment_status !== "paid" && (
-                            <div className="flex gap-2">
-                              <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => markSalaryStatus(s.id, 'paid')}>Mark Paid</Button>
-                              <Button size="sm" variant="outline" onClick={() => markSalaryStatus(s.id, 'pending')}>Mark Pending</Button>
-                            </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
               </CardContent>
             </Card>
-            <div className="flex justify-center">
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); setSalariesPage((p) => Math.max(1, p - 1)) }} />
-                  </PaginationItem>
-                  {Array.from({ length: salariesPages }).slice(0, 5).map((_, i) => {
-                    const p = i + 1
-                    return (
-                      <PaginationItem key={`sal-${p}`}>
-                        <PaginationLink href="#" isActive={p === salariesPage} onClick={(e) => { e.preventDefault(); setSalariesPage(p) }}>{p}</PaginationLink>
-                      </PaginationItem>
-                    )
-                  })}
-                  <PaginationItem>
-                    <PaginationNext href="#" onClick={(e) => { e.preventDefault(); setSalariesPage((p) => Math.min(salariesPages, p + 1)) }} />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
+          </TabsContent>
+
+          <TabsContent value="expenses">
+            <Card className="bg-gradient-to-br from-white to-amber-50 border-0 shadow-xl shadow-amber-200/50">
+              <CardHeader className="bg-gradient-to-r from-amber-600 to-orange-700 text-white rounded-t-lg">
+                <CardTitle className="flex items-center gap-3 text-xl">
+                  <div className="p-4 bg-white/20 rounded-lg backdrop-blur-sm">
+                    <DollarSign className="w-4 h-4" />
+                  </div>
+                  Expenses
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="rounded-xl border border-amber-200 overflow-hidden shadow-lg bg-white">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-gradient-to-r from-amber-50 to-amber-100 border-b border-amber-200">
+                        <TableHead className="font-semibold text-slate-700">Category</TableHead>
+                        <TableHead className="font-semibold text-slate-700">Date</TableHead>
+                        <TableHead className="font-semibold text-slate-700">Amount</TableHead>
+                        <TableHead className="font-semibold text-slate-700">Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {expensesLoading ? (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center py-8 text-slate-500">Loading expenses...</TableCell>
+                        </TableRow>
+                      ) : (
+                        expenses.map((e) => (
+                          <TableRow key={e.id}>
+                            <TableCell className="font-medium text-slate-900">{e.category}</TableCell>
+                            <TableCell className="font-mono text-sm text-slate-600">{e.expense_date}</TableCell>
+                            <TableCell className="font-semibold text-slate-900">{e.amount} {e.currency}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {statusBadge((e.status || "pending") as any)}
+                                <Button size="sm" variant="outline" onClick={async () => {
+                                  const token = getValidToken()
+                                  const next = e.status === 'approved' ? 'pending' : 'approved'
+                                  const res = await fetch(`/api/expenses/${e.id}`, { method: "PUT", headers: token ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } : { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ status: next }) })
+                                  const data = await res.json().catch(() => ({}))
+                                  if (res.ok && data.success) { toast({ title: "Updated" }); setExpenses((arr) => arr.map((x) => x.id === e.id ? { ...x, status: next } : x)) } else { toast({ title: "Failed", description: data?.message || "", variant: "destructive" }) }
+                                }}>Toggle</Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

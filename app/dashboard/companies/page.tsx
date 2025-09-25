@@ -8,10 +8,12 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useToast } from "@/hooks/use-toast"
 import { getValidToken } from "@/lib/token-utils"
-import { Building2, Mail, Phone, User2, MapPin, PlusCircle, Search, Factory } from "lucide-react"
+import { Building2, Mail, Phone, User2, MapPin, PlusCircle, Search, Factory, Edit3, Save, X, UserPlus } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 export default function CompaniesPage() {
   const { toast } = useToast()
+  const router = useRouter()
   const [search, setSearch] = useState("")
   const [loading, setLoading] = useState(false)
   const [rows, setRows] = useState<any[]>([])
@@ -25,6 +27,8 @@ export default function CompaniesPage() {
   const [address, setAddress] = useState("")
   const [country, setCountry] = useState("")
   const [requirements, setRequirements] = useState("")
+  const [editingId, setEditingId] = useState<string>("")
+  const [draft, setDraft] = useState<any>({})
 
   const qs = useMemo(() => {
     const s = new URLSearchParams()
@@ -78,7 +82,8 @@ export default function CompaniesPage() {
         const data2 = await res2.json()
         if (data2.success) setRows(data2.data)
       } else {
-        toast({ title: "Failed to create", description: data.message || "", variant: "destructive" })
+        const msg = data?.message || "Failed to create company"
+        toast({ title: "Failed to create", description: msg, variant: "destructive" })
       }
     } catch (e) {
       toast({ title: "Error", description: "Unable to create company", variant: "destructive" })
@@ -113,7 +118,7 @@ export default function CompaniesPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Button onClick={() => setSearch("")} variant="outline">Clear</Button>
-                  <Button onClick={() => window.location.href = "/dashboard/companies/new"}>
+                  <Button onClick={() => router.push("/dashboard/companies/new") }>
                     <PlusCircle className="mr-2 h-4 w-4" /> New Company
                   </Button>
                 </div>
@@ -145,31 +150,84 @@ export default function CompaniesPage() {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {rows.map((r) => (
-                  <div key={r.id} className="rounded-lg border bg-white p-4 shadow-sm">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="rounded-md bg-blue-50 p-2 text-blue-600"><Building2 className="h-4 w-4" /></div>
-                        <div>
-                          <div className="font-semibold leading-tight">{r.name}</div>
-                          <div className="text-xs text-muted-foreground">{r.country || "—"}</div>
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {rows.map((r) => (
+                    <Card key={r.id}>
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="rounded-md bg-blue-50 p-2 text-blue-600"><Building2 className="h-4 w-4" /></div>
+                            <div>
+                              {editingId === r.id ? (
+                                <div className="space-y-1">
+                                  <Input value={draft.name || ""} onChange={(e) => setDraft({ ...draft, name: e.target.value })} className="h-8" />
+                                  <Input value={draft.country || ""} onChange={(e) => setDraft({ ...draft, country: e.target.value })} className="h-8" placeholder="Country" />
+                                </div>
+                              ) : (
+                                <>
+                                  <CardTitle className="text-base leading-tight">{r.name}</CardTitle>
+                                  <CardDescription>{r.country || "—"}</CardDescription>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          {editingId === r.id ? (
+                            <div className="flex items-center gap-2">
+                              <Button size="sm" onClick={async () => {
+                                try {
+                                  const res = await fetch(`/api/companies/${r.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ name: draft.name, country: draft.country, contact_person: draft.contact_person, email: draft.email, phone: draft.phone }) })
+                                  const data = await res.json().catch(() => ({}))
+                                  if (res.ok && data.success) {
+                                    toast({ title: "Saved", description: "Company updated" })
+                                    const res2 = await fetch(`/api/companies?${qs}`, { credentials: "include" })
+                                    const data2 = await res2.json()
+                                    if (data2.success) setRows(data2.data)
+                                    setEditingId("")
+                                  } else {
+                                    toast({ title: "Failed", description: data?.message || `HTTP ${res.status}`, variant: "destructive" })
+                                  }
+                                } catch (e: any) {
+                                  if (e?.message) toast({ title: "Error", description: e.message, variant: "destructive" })
+                                }
+                              }} className="gap-1"><Save className="h-4 w-4" /> Save</Button>
+                              <Button size="sm" variant="outline" onClick={() => setEditingId("")}>Cancel</Button>
+                            </div>
+                          ) : null}
                         </div>
-                      </div>
-                    </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                      <div className="flex items-center gap-2 text-muted-foreground"><User2 className="h-4 w-4" /> {r.contact_person || "—"}</div>
-                      <div className="flex items-center gap-2 text-muted-foreground"><Phone className="h-4 w-4" /> {r.phone || "—"}</div>
-                      <div className="flex items-center gap-2 text-muted-foreground col-span-2"><Mail className="h-4 w-4" /> {r.email || "—"}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 flex items-center justify-between">
-                <Button variant="outline" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}>Previous</Button>
-                <div className="text-sm text-muted-foreground">Page {page}</div>
-                <Button variant="outline" onClick={() => setPage(page + 1)} disabled={rows.length < limit}>Next</Button>
-              </div>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <User2 className="h-4 w-4" /> {editingId === r.id ? <Input value={draft.contact_person || ""} onChange={(e) => setDraft({ ...draft, contact_person: e.target.value })} className="h-8" /> : (r.contact_person || "—")}
+                          </div>
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Phone className="h-4 w-4" /> {editingId === r.id ? <Input value={draft.phone || ""} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} className="h-8" /> : (r.phone || "—")}
+                          </div>
+                          <div className="flex items-center gap-2 text-muted-foreground col-span-2">
+                            <Mail className="h-4 w-4" /> {editingId === r.id ? <Input value={draft.email || ""} onChange={(e) => setDraft({ ...draft, email: e.target.value })} className="h-8" /> : (r.email || "—")}
+                          </div>
+                        </div>
+                        {editingId !== r.id && (
+                          <div className="flex items-center justify-end gap-2 pt-2">
+                            <Button size="sm" variant="outline" className="gap-1" onClick={() => { setEditingId(r.id); setDraft(r) }}>
+                              <Edit3 className="h-4 w-4" /> Edit
+                            </Button>
+                            <Button size="sm" className="gap-1" onClick={() => router.push(`/dashboard/admin/assignments?companyId=${r.id}`)}>
+                              <UserPlus className="h-4 w-4" /> Assign Agent
+                            </Button>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                <div className="mt-4 flex items-center justify-between">
+                  <Button variant="outline" onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}>Previous</Button>
+                  <div className="text-sm text-muted-foreground">Page {page}</div>
+                  <Button variant="outline" onClick={() => setPage(page + 1)} disabled={rows.length < limit}>Next</Button>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>

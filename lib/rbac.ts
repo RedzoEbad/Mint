@@ -18,9 +18,8 @@ export const rolePermissions: Record<AppRole, Record<string, string[]>> = {
   admin: {
     candidates: ["read"],
     users: ["create", "read", "update", "delete", "assign_roles_limited"],
-    payments: ["read"],
-    workflows: ["read", "reset"],
-    reports: ["read"], // summary-only; no financial export
+    workflows: ["read"],
+    reports: ["read"],
     expenses: [],
     salaries: [],
   },
@@ -31,7 +30,7 @@ export const rolePermissions: Record<AppRole, Record<string, string[]>> = {
   },
   process_agent: {
     candidates: ["read", "update"],
-    companies: ["read", "update"],
+    companies: ["read"],
     workflows: ["create", "read", "update"],
     interviews: ["create", "read", "update"],
     payments: ["read", "create"], // request approvals
@@ -49,30 +48,39 @@ export const rolePermissions: Record<AppRole, Record<string, string[]>> = {
 // Route-level role access map used by middleware (most specific path first)
 export const routeRoleMap: Record<string, AppRole[]> = {
   // Dashboards
-  "/dashboard/admin": ["super_admin", "admin"],
+  "/dashboard/super-admin": ["super_admin"],
+  "/dashboard/admin": ["admin"],
+  "/dashboard/admin/employees": ["super_admin", "admin"],
   "/dashboard/users": ["super_admin", "admin"],
   "/dashboard/receptionist": ["receptionist"],
-  "/dashboard/agent": ["process_agent", "admin"], // admin oversight
-  "/dashboard/accounts": ["accountant", "admin"], // admin oversight
-  "/dashboard/candidates": ["super_admin", "receptionist", "process_agent", "admin"],
+  "/dashboard/agent": ["process_agent"],
+  "/dashboard/accounts": ["accountant"],
+  "/dashboard/candidates": ["super_admin", "receptionist", "process_agent"],
   "/dashboard/workflows": ["super_admin", "process_agent", "admin"],
-  "/dashboard/interviews": ["super_admin", "process_agent"],
-  "/dashboard/search": ["super_admin", "process_agent", "admin"],
-  "/dashboard/companies": ["super_admin", "process_agent", "admin"],
-  "/dashboard/payments": ["super_admin", "accountant", "process_agent", "admin"],
+  "/dashboard/admin/engagements": ["super_admin", "admin"],
+  
+  
+  "/dashboard/companies": ["super_admin", "admin"],
+  "/dashboard/payments": ["super_admin", "accountant", "process_agent"],
   "/dashboard/expenses": ["super_admin", "accountant"],
+  "/dashboard/accounts/salaries": ["super_admin", "accountant"],
+  "/dashboard/accounts/expenses": ["super_admin", "accountant"],
+  "/dashboard/accounts/reports": ["super_admin", "accountant", "admin"],
+  
   "/dashboard/reports": ["super_admin", "admin", "accountant", "process_agent"],
 
   // APIs
   "/api/admin/users": ["super_admin", "admin"],
-  "/api/candidates": ["super_admin", "receptionist", "process_agent", "admin"],
-  "/api/candidates/search": ["super_admin", "process_agent", "admin"],
+  "/api/admin/assignments": ["super_admin", "admin"],
+  "/api/candidates": ["super_admin", "receptionist", "process_agent"],
+  "/api/candidates/search": ["super_admin", "process_agent"],
   "/api/workflows": ["super_admin", "process_agent", "admin"],
-  "/api/interviews": ["super_admin", "process_agent"],
-  "/api/companies": ["super_admin", "process_agent", "admin", "accountant", "receptionist"],
+  
+  "/api/companies": ["super_admin", "admin", "accountant", "receptionist"],
   "/api/payments": ["super_admin", "accountant", "process_agent", "admin"],
-  "/api/expenses": ["super_admin", "accountant"],
-  "/api/salaries": ["super_admin", "accountant"],
+  "/api/expenses": ["super_admin", "accountant", "admin"],
+  "/api/salaries": ["super_admin", "accountant", "admin"],
+  
   "/api/reports": ["super_admin", "admin", "accountant", "process_agent"],
 
   // Admin-only exports/reports

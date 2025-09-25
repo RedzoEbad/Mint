@@ -3,15 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "analyze": "cross-env ANALYZE=true next build",
     "build": "next build",
-    "db:init": "node scripts/init-db.js",
-    "db:generate": "drizzle-kit generate",
-    "db:push": "drizzle-kit push",
-    "db:sync": "drizzle-kit generate && drizzle-kit push",
     "db:sync:smart": "node scripts/sync-schema.js",
-    "db:studio": "drizzle-kit studio",
-    "db:migrate": "node scripts/migrate-db.js",
     "dev": "next dev",
     "lint": "next lint",
     "start": "next start"
@@ -75,6 +68,7 @@
     "react-resizable-panels": "latest",
     "recharts": "latest",
     "sonner": "latest",
+    "swagger-ui-react": "^5.29.0",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "latest"

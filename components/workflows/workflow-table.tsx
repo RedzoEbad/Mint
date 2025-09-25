@@ -41,6 +41,8 @@ export default function WorkflowTable({ page = 1, limit = 10, onPageChange, onLi
   const [loading, setLoading] = useState<boolean>(true)
   const [status, setStatus] = useState<string>(searchParams.get("status") || "all")
   const [search, setSearch] = useState<string>(searchParams.get("search") || "")
+  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([])
+  const [companyId, setCompanyId] = useState<string>(searchParams.get("company_id") || "")
 
   const queryString = useMemo(() => {
     const sp = new URLSearchParams()
@@ -58,6 +60,7 @@ export default function WorkflowTable({ page = 1, limit = 10, onPageChange, onLi
     sp.set("limit", String(limit))
     if (status && status !== "all") sp.set("status", status)
     if (search) sp.set("search", search)
+    if (companyId) sp.set("company_id", companyId)
     router.replace(`${pathname}?${sp.toString()}`)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, limit, status, search])
@@ -69,7 +72,9 @@ export default function WorkflowTable({ page = 1, limit = 10, onPageChange, onLi
       try {
         setLoading(true)
         const token = getValidToken()
-        const res = await fetch(`/api/workflows?${queryString}`, {
+        const qs = new URLSearchParams(queryString)
+        if (companyId) qs.set("company_id", companyId)
+        const res = await fetch(`/api/workflows?${qs.toString()}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
           credentials: "include",
           signal: controller.signal,
@@ -92,7 +97,44 @@ export default function WorkflowTable({ page = 1, limit = 10, onPageChange, onLi
       isActive = false
       controller.abort()
     }
-  }, [queryString])
+  }, [queryString, companyId])
+
+  // Load companies and hydrate companyId from localStorage after mount to avoid SSR mismatch
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const token = getValidToken()
+        const res = await fetch(`/api/companies`, { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: "include" })
+        const data = await res.json()
+        if (data.success) {
+          setCompanies(data.data || [])
+          if (typeof window !== "undefined") {
+            const stored = localStorage.getItem("selectedCompanyId") || ""
+            if (stored && data.data?.some((c: any) => c.id === stored)) {
+              setCompanyId(stored)
+            } else if (!companyId && data.data?.length) {
+              setCompanyId(data.data[0].id)
+            }
+          }
+        }
+      } catch {}
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    if (companyId && typeof window !== "undefined") localStorage.setItem("selectedCompanyId", companyId)
+  }, [companyId])
+
+  useEffect(() => {
+    function onCompanyChanged(e: any) {
+      if (e?.detail?.id) setCompanyId(e.detail.id)
+    }
+    if (typeof window !== "undefined") {
+      window.addEventListener("companyChanged", onCompanyChanged as any)
+      return () => window.removeEventListener("companyChanged", onCompanyChanged as any)
+    }
+  }, [])
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, string> = {
@@ -156,6 +198,17 @@ export default function WorkflowTable({ page = 1, limit = 10, onPageChange, onLi
           <Button variant="outline" onClick={() => { setStatus("all"); setSearch(""); }}>Reset</Button>
         </div>
         <div className="flex items-center gap-2">
+          <span className="text-sm">Company</span>
+          <Select value={companyId} onValueChange={setCompanyId}>
+            <SelectTrigger className="w-56">
+              <SelectValue placeholder="Select company" />
+            </SelectTrigger>
+            <SelectContent>
+              {companies.map((c) => (
+                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <div className="text-sm text-muted-foreground">Total: {total}</div>
           <span className="text-sm">Rows:</span>
           <Select value={String(limit)} onValueChange={(v) => onLimitChange?.(Number(v))}>

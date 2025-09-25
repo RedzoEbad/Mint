@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/api-auth"
 
 export async function GET(request: NextRequest) {
   try {
-    // Broad read access for listing/choosing companies
+    // Broad read access, but process agents see only assigned companies
     const auth = await requireAuth(request, ["super_admin", "process_agent", "admin", "accountant", "receptionist"])
     if (!auth.ok) return auth.response
 
@@ -24,15 +24,27 @@ export async function GET(request: NextRequest) {
       params.push(`%${search}%`)
     }
 
-    const totalRes = await query(`SELECT COUNT(*) AS total FROM companies ${whereClause}`, params)
+    let totalSql = `SELECT COUNT(*) AS total FROM companies ${whereClause}`
+    let listSql = `SELECT id, name, contact_person, email, phone, country FROM companies ${whereClause}`
 
+    // If process agent, filter to assigned companies only
+    if (auth.payload.role === "process_agent") {
+      const assignedJoin = ` INNER JOIN agent_company_assignments aca ON aca.company_id = companies.id AND aca.agent_id = $${paramCount + 1} AND aca.active = true `
+      totalSql = `SELECT COUNT(*) AS total FROM companies ${assignedJoin} ${whereClause}`
+      listSql = `SELECT companies.id, companies.name, companies.contact_person, companies.email, companies.phone, companies.country FROM companies ${assignedJoin} ${whereClause}`
+    }
+
+    const totalRes = await query(totalSql, auth.payload.role === "process_agent" ? [...params, auth.payload.userId] : params)
+
+    // Build params for list query, ensuring LIMIT/OFFSET placeholders come after any agent_id param
+    const listParamsBase = auth.payload.role === "process_agent" ? [...params, auth.payload.userId] : [...params]
+    const limitIdx = listParamsBase.length + 1
+    const offsetIdx = listParamsBase.length + 2
     const companiesResult = await query(
-      `SELECT id, name, contact_person, email, phone, country
-       FROM companies 
-       ${whereClause}
+      `${listSql}
        ORDER BY name ASC
-       LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`,
-      [...params, limit, offset]
+       LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+      [...listParamsBase, limit, offset]
     )
 
     return NextResponse.json({
@@ -48,7 +60,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAuth(request, ["super_admin", "process_agent"])
+    const auth = await requireAuth(request, ["super_admin", "admin"]) // agents cannot create companies
     if (!auth.ok) return auth.response
 
     const { name, contact_person, email, phone, address, country, requirements } = await request.json()

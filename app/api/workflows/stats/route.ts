@@ -1,91 +1,65 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/database"
 import { requireAuth } from "@/lib/api-auth"
-import { withTiming, timedQuery, logSlowOperation } from "@/lib/performance"
 
-// Dynamic route - can't use revalidate with request headers
-
-export const GET = withTiming(async (request: NextRequest) => {
+export async function GET(request: NextRequest) {
   try {
-    const auth = await requireAuth(request, ["super_admin", "process_agent"])
+    const auth = await requireAuth(request, ["super_admin", "process_agent", "admin"])
     if (!auth.ok) return auth.response
 
-    let whereClause = ""
-    const params: any[] = []
+    // For process agents, scope to their assigned workflows; admins see all
+    const isAgent = auth.payload.role === "process_agent"
 
-    // If user is process_agent, only show their stats
-    if (auth.payload.role === "process_agent") {
-      whereClause = "WHERE assigned_agent = $1"
-      params.push(auth.payload.userId)
-    }
+    // Active workflows (in_progress)
+    const activeRes = await query(
+      `SELECT COUNT(*)::int AS cnt
+       FROM workflow_stages w
+       ${isAgent ? "WHERE w.assigned_agent = $1 AND w.overall_status = 'in_progress'" : "WHERE w.overall_status = 'in_progress'"}`,
+      isAgent ? [auth.payload.userId] : [],
+    )
 
-    const [activeResult, todayResult, statusResult, interviewsResult] = await Promise.all([
-      // Active workflows
-      timedQuery(
-        () => query(
-          `SELECT COUNT(*) as active FROM workflow_stages ${whereClause} ${whereClause ? "AND" : "WHERE"} overall_status IN ('initiated', 'in_progress')`,
-          params,
-        ),
-        "Active Workflows Count"
-      ),
+    // Created today (UTC date)
+    const todayRes = await query(
+      `SELECT COUNT(*)::int AS cnt
+       FROM workflow_stages w
+       ${isAgent ? "WHERE w.assigned_agent = $1 AND w.created_at::date = CURRENT_DATE" : "WHERE w.created_at::date = CURRENT_DATE"}`,
+      isAgent ? [auth.payload.userId] : [],
+    )
 
-      // Today's completed workflows
-      timedQuery(
-        () => query(
-          `SELECT COUNT(*) as today FROM workflow_stages ${whereClause} ${whereClause ? "AND" : "WHERE"} overall_status = 'completed' AND DATE(updated_at) = CURRENT_DATE`,
-          params,
-        ),
-        "Today's Completed Count"
-      ),
+    // Pending interviews = engagements where interview_status in ('pending','scheduled') for agent scope
+    const pendingInterviewsRes = await query(
+      `SELECT COUNT(*)::int AS cnt
+       FROM candidate_company_engagements e
+       ${isAgent ? "INNER JOIN agent_company_assignments aca ON aca.agent_id = $1 AND aca.company_id = e.company_id AND aca.active = true" : ""}
+       WHERE e.interview_status IN ('pending','scheduled')`,
+      isAgent ? [auth.payload.userId] : [],
+    )
 
-      // Status breakdown
-      timedQuery(
-        () => query(
-          `
-          SELECT 
-            overall_status,
-            COUNT(*) as count
-          FROM workflow_stages 
-          ${whereClause}
-          GROUP BY overall_status
-        `,
-          params,
-        ),
-        "Status Breakdown Query"
-      ),
+    // Breakdown of workflow overall_status
+    const breakdownRes = await query(
+      `SELECT w.overall_status, COUNT(*)::int AS cnt
+       FROM workflow_stages w
+       ${isAgent ? "WHERE w.assigned_agent = $1" : ""}
+       GROUP BY w.overall_status`,
+      isAgent ? [auth.payload.userId] : [],
+    )
 
-      // Pending interviews count
-      timedQuery(
-        () => query(
-          `
-          SELECT COUNT(*) as pending_interviews
-          FROM interviews i
-          JOIN workflow_stages w ON i.candidate_id = w.candidate_id
-          WHERE i.interview_status = 'scheduled' 
-          ${whereClause ? `AND w.assigned_agent = $${params.length}` : ""}
-        `,
-          whereClause ? params : [],
-        ),
-        "Pending Interviews Count"
-      ),
-    ])
-
-    const stats = {
-      active: Number.parseInt(activeResult.rows[0].active),
-      today: Number.parseInt(todayResult.rows[0].today),
-      pending_interviews: Number.parseInt(interviewsResult.rows[0].pending_interviews),
-      statusBreakdown: statusResult.rows.reduce((acc, row) => {
-        acc[row.overall_status] = Number.parseInt(row.count)
-        return acc
-      }, {}),
+    const statusBreakdown: Record<string, number> = {}
+    for (const r of breakdownRes.rows) {
+      statusBreakdown[String(r.overall_status)] = Number(r.cnt)
     }
 
     return NextResponse.json({
       success: true,
-      data: stats,
+      data: {
+        active: Number(activeRes.rows[0]?.cnt || 0),
+        today: Number(todayRes.rows[0]?.cnt || 0),
+        pending_interviews: Number(pendingInterviewsRes.rows[0]?.cnt || 0),
+        statusBreakdown,
+      },
     })
-  } catch (error) {
-    console.error("Get workflow stats error:", error)
+  } catch (e) {
+    console.error("Workflows stats error:", e)
     return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 })
   }
-}, "Workflow Stats API")
+}

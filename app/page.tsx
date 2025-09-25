@@ -12,13 +12,15 @@ export default function HomePage() {
     if (!loading) {
       if (user) {
         // Redirect to appropriate dashboard based on role
-        const dashboardRoutes = {
+        const dashboardRoutes: Record<string, string> = {
           super_admin: "/dashboard/admin",
+          admin: "/dashboard/admin",
           receptionist: "/dashboard/receptionist",
           process_agent: "/dashboard/agent",
           accountant: "/dashboard/accounts",
         }
-        router.push(dashboardRoutes[user.role as keyof typeof dashboardRoutes])
+        const targetRoute = dashboardRoutes[user.role] ?? "/dashboard"
+        router.push(targetRoute)
       } else {
         // Redirect to login if not authenticated
         router.push("/login")

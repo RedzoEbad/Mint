@@ -12,108 +12,92 @@ import { Building2, Factory, Mail, MapPin, Phone, User2 } from "lucide-react"
 import { COUNTRIES } from "@/components/data/countries"
 import { useRouter } from "next/navigation"
 
+export default function NewCompanyPage() { return null }
 export default function NewCompanyPage() {
-  const { toast } = useToast()
   const router = useRouter()
-  const [name, setName] = useState("")
-  const [contact, setContact] = useState("")
-  const [email, setEmail] = useState("")
-  const [phone, setPhone] = useState("")
-  const [address, setAddress] = useState("")
-  const [country, setCountry] = useState("")
-  const [requirements, setRequirements] = useState("")
-  const [saving, setSaving] = useState(false)
+  const { toast } = useToast()
+  const [form, setForm] = useState({
+    name: "",
+    contact_person: "",
+    email: "",
+    phone: "",
+    address: "",
+    country: "",
+    requirements: "",
+  })
+  const [busy, setBusy] = useState(false)
 
-  const createCompany = async () => {
+  const onChange = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [key]: e.target.value })
+
+  const submit = async () => {
+    if (!form.name) { toast({ title: "Name is required", variant: "destructive" }); return }
     try {
-      setSaving(true)
+      setBusy(true)
       const token = getValidToken()
-      const res = await fetch(`/api/companies`, {
+      const res = await fetch("/api/companies", {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } : { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ name, contact_person: contact, email, phone, address, country, requirements }),
+        body: JSON.stringify(form),
       })
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
       if (res.ok && data.success) {
         toast({ title: "Company created" })
-        router.push("/dashboard/companies")
+        router.replace("/dashboard/companies")
       } else {
-        toast({ title: "Failed to create", description: data.message || "", variant: "destructive" })
+        toast({ title: "Failed", description: data?.message || `HTTP ${res.status}`, variant: "destructive" })
       }
-    } catch (e) {
-      toast({ title: "Error", description: "Unable to create company", variant: "destructive" })
-    } finally {
-      setSaving(false)
-    }
+    } catch (e: any) {
+      toast({ title: "Error", description: e?.message || "Create failed", variant: "destructive" })
+    } finally { setBusy(false) }
   }
 
   return (
     <DashboardLayout title="New Company">
-      <div className="space-y-6">
+      <div className="max-w-3xl">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5" /> Company Details</CardTitle>
-            <CardDescription>Provide company information</CardDescription>
+            <CardTitle>Create Company/Project</CardTitle>
+            <CardDescription>Admins can create a company and later assign agents to it.</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="md:col-span-2">
-                <label className="block text-sm mb-1">Name</label>
-                <div className="relative">
-                  <Factory className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input className="pl-9" value={name} onChange={(e) => setName(e.target.value)} placeholder="Company name" />
-                </div>
+              <div>
+                <div className="text-sm mb-1 flex items-center gap-2"><Factory className="h-4 w-4" /> Name</div>
+                <Input value={form.name} onChange={onChange("name")} placeholder="Company name" />
               </div>
               <div>
-                <label className="block text-sm mb-1">Contact Person</label>
-                <div className="relative">
-                  <User2 className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input className="pl-9" value={contact} onChange={(e) => setContact(e.target.value)} placeholder="Full name" />
-                </div>
+                <div className="text-sm mb-1 flex items-center gap-2"><User2 className="h-4 w-4" /> Contact Person</div>
+                <Input value={form.contact_person} onChange={onChange("contact_person")} placeholder="Contact person" />
               </div>
               <div>
-                <label className="block text-sm mb-1">Email</label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input type="email" className="pl-9" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@company.com" />
-                </div>
+                <div className="text-sm mb-1 flex items-center gap-2"><Mail className="h-4 w-4" /> Email</div>
+                <Input type="email" value={form.email} onChange={onChange("email")} placeholder="Email" />
               </div>
               <div>
-                <label className="block text-sm mb-1">Phone</label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input className="pl-9" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+92 3xx xxxxxxx" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm mb-1">Country</label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <div className="pl-8">
-                    <Select value={country} onValueChange={setCountry}>
-                      <SelectTrigger><SelectValue placeholder="Select a country" /></SelectTrigger>
-                      <SelectContent className="max-h-64">
-                        {COUNTRIES.map((c) => (
-                          <SelectItem key={c.code} value={c.name}>{c.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                <div className="text-sm mb-1 flex items-center gap-2"><Phone className="h-4 w-4" /> Phone</div>
+                <Input value={form.phone} onChange={onChange("phone")} placeholder="Phone" />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm mb-1">Address</label>
-                <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Street, City" />
+                <div className="text-sm mb-1 flex items-center gap-2"><MapPin className="h-4 w-4" /> Address</div>
+                <Input value={form.address} onChange={onChange("address")} placeholder="Address" />
               </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm mb-1">Requirements</label>
-                <Input value={requirements} onChange={(e) => setRequirements(e.target.value)} placeholder="Role requirements or notes" />
+              <div>
+                <div className="text-sm mb-1">Country</div>
+                <Select value={form.country} onValueChange={(v) => setForm({ ...form, country: v })}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Select country" /></SelectTrigger>
+                  <SelectContent>
+                    {COUNTRIES.map((c) => (<SelectItem key={c.code} value={c.name}>{c.name}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <div className="text-sm mb-1">Requirements</div>
+                <Input value={form.requirements} onChange={onChange("requirements")} placeholder="Short requirements" />
               </div>
             </div>
-            <div className="mt-4 flex items-center gap-2">
-              <Button onClick={createCompany} disabled={!name || saving}>{saving ? "Creating..." : "Create"}</Button>
-              <Button variant="ghost" onClick={() => history.back()}>Cancel</Button>
+            <div className="flex justify-end">
+              <Button onClick={submit} disabled={busy}>{busy ? "Saving..." : "Create"}</Button>
             </div>
           </CardContent>
         </Card>

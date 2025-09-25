@@ -77,7 +77,7 @@ export const config = {
     "/api/admin/reports/:path*",
     "/api/users/:path*",
     "/api/workflows/:path*",
-    "/api/interviews/:path*",
+    
     "/api/payments/:path*",
     "/api/reports/:path*",
     "/api/expenses/:path*",

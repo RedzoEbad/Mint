@@ -9,12 +9,12 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
   // Connection pool optimizations
-  max: 20, // Maximum number of clients in the pool
-  min: 2, // Minimum number of clients in the pool
-  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-  connectionTimeoutMillis: 2000, // Return an error after 2 seconds if connection could not be established
-  statement_timeout: 10000, // Query timeout of 10 seconds
-  query_timeout: 10000, // Query timeout of 10 seconds
+  max: Number(process.env.DB_POOL_MAX || 10),
+  min: Number(process.env.DB_POOL_MIN || 2),
+  idleTimeoutMillis: Number(process.env.DB_IDLE_TIMEOUT_MS || 30000),
+  connectionTimeoutMillis: Number(process.env.DB_CONN_TIMEOUT_MS || 5000),
+  statement_timeout: Number(process.env.DB_STATEMENT_TIMEOUT_MS || 20000),
+  query_timeout: Number(process.env.DB_QUERY_TIMEOUT_MS || 20000),
 })
 
 // Test database connection

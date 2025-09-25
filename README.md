@@ -1,192 +1,192 @@
 # MINT International Platform
 
-A comprehensive platform to bridge opportunity gaps in Saudi Arabia for overseas employment.
+A comprehensive, role-based platform for managing overseas employment workflows, candidates, finances, and analytics.
 
-## Features
+## Quick Start
 
-- **Role-Based Authentication**: Super Admin, Receptionist, Process Agent, Accountant
-- **Candidate Management**: Registration, profile management, status tracking
-- **Workflow Management**: Medical → Visa → Protector → Passport → Flight tracking
-- **Payment Processing**: Payment validation and expense management
-- **Analytics & Reporting**: Comprehensive dashboards and financial reports
-- **Responsive Design**: Mobile-first design with MINT International branding
-
-## Setup Instructions
-
-### 1. Database Setup
-
-1. Install PostgreSQL on your local machine
-2. Create a new database named `mint_international`
-3. Update the database credentials in `.env.local`
-4. Run the database scripts:
-   \`\`\`bash
-   # Execute the SQL scripts in order
-   psql -U username -d mint_international -f scripts/01-create-database-schema.sql
-   psql -U username -d mint_international -f scripts/02-seed-initial-data.sql
-   \`\`\`
-
-### 2. Environment Configuration
-
-1. Copy `.env.local` and update the values:
-   - Set your PostgreSQL connection details
-   - Generate a secure JWT secret
-   - Configure file upload settings
-   - Set up email configuration (optional)
-
-### 3. Installation & Development
-
-\`\`\`bash
-# Install dependencies
+```bash
+# 1) Install dependencies
 npm install
 
-# Run development server
+# 2) Create env file
+copy .env.example .env.local   # On Windows (PowerShell: cp .env.example .env.local)
+
+# 3) Configure .env.local (see Environment Variables)
+
+# 4) Start dev server
 npm run dev
-\`\`\`
 
-### 4. Create first admin and get a JWT
+# (Optional) 5) Sync database schema via Drizzle
+npm run db:sync:smart
+```
 
-1) Seed the first admin (super_admin) user with hashed password (via Node script):
+- Dev server: `http://localhost:3000`
+- API docs (Swagger UI): `http://localhost:3000/api/docs`
+- OpenAPI JSON: `http://localhost:3000/api/openapi`
 
-\`\`\`bash
-# Windows PowerShell
-$env:DATABASE_URL="postgres://USER:PASSWORD@HOST:PORT/DBNAME"
-$env:ADMIN_EMAIL="admin@mintinternational.org"
-$env:ADMIN_PASSWORD="admin123"
-npm run db:init
-\`\`\`
+## Environment Variables
 
-2) Start the app and log in to obtain a JWT:
+Set these in `.env.local`:
 
-\`\`\`bash
-npm run dev
-\`\`\`
+- DATABASE_URL: Postgres connection string
+- NEXTAUTH_SECRET: Secret used by NextAuth (generate a strong value)
+- NODE_ENV: development | production
+- DB_POOL_MAX: Connection pool max (default 10)
+- DB_POOL_MIN: Connection pool min (default 2)
+- DB_IDLE_TIMEOUT_MS: Idle timeout ms (default 30000)
+- DB_CONN_TIMEOUT_MS: Connection timeout ms (default 5000)
+- DB_STATEMENT_TIMEOUT_MS: Statement timeout ms (default 20000)
+- DB_QUERY_TIMEOUT_MS: Query timeout ms (default 20000)
+- ADMIN_EMAIL: Seeded super admin email (default admin@mintinternational.org)
+- ADMIN_PASSWORD: Seeded super admin password (default admin123)
+- RECEPTIONIST_EMAIL: Seeded receptionist email
+- RECEPTIONIST_PASSWORD: Seeded receptionist password
+- AGENT_EMAIL: Seeded process agent email
+- AGENT_PASSWORD: Seeded process agent password
+- ACCOUNTS_EMAIL: Seeded accountant email
+- ACCOUNTS_PASSWORD: Seeded accountant password
 
-Request a token using the login endpoint:
+Notes:
+- `lib/database.ts` uses `DATABASE_URL` and supports SSL in production.
+- `lib/auth-config.ts` uses `NEXTAUTH_SECRET`. Sessions are JWT-based.
 
-\`\`\`bash
-# PowerShell
-$tokenResponse = Invoke-RestMethod -Method POST `
-  -Uri http://localhost:3000/api/auth/login `
-  -Headers @{ 'Content-Type' = 'application/json' } `
-  -Body (@{ email = 'admin@mintinternational.org'; password = 'admin123' } | ConvertTo-Json)
-$tokenResponse
-\`\`\`
+## Database (PostgreSQL + Drizzle)
 
-Or with curl:
+- Schema: `drizzle/schema.ts` (enums, tables, FKs, indexes)
+- Migrations folder: `drizzle/` (SQL files)
+- Sync helper: `scripts/sync-schema.js` (generate + push)
+- Migrate (Node migrator): `scripts/migrate-db.js`
 
-\`\`\`bash
+Recommended flow:
+
+```bash
+# Ensure DATABASE_URL in .env.local
+
+# Generate migrations from schema changes
+node scripts/sync-schema.js generate
+
+# Apply migrations to the database
+node scripts/sync-schema.js push
+
+# Or use drizzle migrator (single-connection)
+node scripts/migrate-db.js
+```
+
+Seed initial users (super admin and demo roles):
+
+```powershell
+$env:DATABASE_URL = "postgres://USER:PASSWORD@HOST:PORT/DB"
+$env:ADMIN_EMAIL = "admin@mintinternational.org"
+$env:ADMIN_PASSWORD = "admin123"
+node scripts/init-db.js
+```
+
+## Authentication & RBAC
+
+- NextAuth credentials provider: `lib/auth-config.ts`
+- Server helpers: `lib/nextauth.ts` (`getServerAuth`, `requireAuth`, `requireRole`)
+- Password hashing: `bcryptjs`
+- Session strategy: JWT, 24h max age
+- Roles: `super_admin`, `admin`, `receptionist`, `process_agent`, `accountant` (see `drizzle/schema.ts`)
+- Route/UI role policy: `lib/rbac.ts`
+
+Sign in page: `/login` (configured in NextAuth pages). Unauthorized errors redirect to `/unauthorized`.
+
+## API Overview
+
+- OpenAPI route: `app/api/openapi/route.ts`
+- Swagger UI: `app/api/docs/*` (served at `/api/docs`)
+- Auth routes: `app/api/auth/[...nextauth]/route.ts`, `app/api/auth/login/*`, `logout/*`, `verify/*`
+- Domain routes include: candidates, companies, engagements, payments, salaries, expenses, uploads, workflows, admin modules
+
+Auth usage (JWT via credentials login route if applicable):
+
+```bash
 curl -s -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@mintinternational.org","password":"admin123"}'
-\`\`\`
+```
 
-The response contains `token`. Use it in subsequent requests:
+Use the returned token (if provided by the login route) in subsequent requests:
 
-\`\`\`bash
-curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost:3000/api/candidates
-\`\`\`
+```bash
+authHeader="Authorization: Bearer YOUR_TOKEN"
+curl -H "$authHeader" http://localhost:3000/api/candidates
+```
 
-## API Documentation
+In Swagger UI, use the Authorize button to set the token.
 
-Access Swagger UI at: `http://localhost:3000/api/docs`
+## Uploads
 
-The OpenAPI spec is served at: `http://localhost:3000/api/openapi`
-
-You can authorize requests in the Swagger UI using the JWT token from the login endpoint.
-
-### Roles and account management
-### Uploads
-
-Folder structure under `public/uploads` (created on demand):
-
-- `public/uploads/profile-images`
-- `public/uploads/cv`
-- `public/uploads/receipts`
-- `public/uploads/others`
-
-Upload endpoint:
-
-- POST `/api/uploads/{type}` — multipart/form-data with field `file`
-- Roles: super_admin, admin, receptionist, process_agent, accountant
+- Public folder: `public/uploads/*`
+- Endpoint: `POST /api/uploads/{type}`
+- Form field: `file` (multipart/form-data)
 - Response: `{ success: true, url, filename }`
+- Allowed roles: super_admin, admin, receptionist, process_agent, accountant
 
 Example (PowerShell):
 
-\`\`\`powershell
+```powershell
 $token = "YOUR_JWT"
 Invoke-WebRequest -Uri http://localhost:3000/api/uploads/profile-images -Method POST -Headers @{
   Authorization = "Bearer $token"
 } -InFile .\avatar.jpg -ContentType "multipart/form-data"
-\`\`\`
-
-In forms, save the returned `url` (e.g. `/uploads/profile-images/abc-123.jpg`) to the DB field and render with `next/image`.
-
-Roles:
-- super_admin: Full access, including creating Admins and all employees
-- admin: Employee account management (create/update/delete), read-only access to other modules
-- receptionist, process_agent, accountant: Role-specific limited access
-
-Super Admin can manage Admins and all employees from the dashboard Users page.
-Admins can manage employee accounts (receptionist, process_agent, accountant, admin) but cannot create super_admins.
-
-### Demo accounts
-
-You can use these accounts to explore dashboards:
-
-- Receptionist — Email: `receptionist@mintinternational.org`, Password: `receptionist123`
-- Process Agent — Email: `agent@mintinternational.org`, Password: `agent123`
-- Accountant — Email: `accounts@mintinternational.org`, Password: `accounts123`
-
-The init script seeds them automatically if missing. To customize, set env vars before running `npm run db:init`:
-
-\`\`\`powershell
-$env:RECEPTIONIST_EMAIL="receptionist@mintinternational.org"
-$env:RECEPTIONIST_PASSWORD="receptionist123"
-$env:AGENT_EMAIL="agent@mintinternational.org"
-$env:AGENT_PASSWORD="agent123"
-$env:ACCOUNTS_EMAIL="accounts@mintinternational.org"
-$env:ACCOUNTS_PASSWORD="accounts123"
-npm run db:init
-\`\`\`
+```
 
 ## Project Structure
 
-\`\`\`
-├── app/
-│   ├── api/                 # API routes
-│   ├── dashboard/           # Role-based dashboards
-│   ├── login/              # Authentication pages
-│   └── unauthorized/       # Access denied page
-├── components/
-│   ├── ui/                 # Reusable UI components
-│   ├── auth-provider.tsx   # Authentication context
-│   └── dashboard-layout.tsx # Shared dashboard layout
-├── lib/
-│   ├── auth.ts            # Authentication utilities
-│   ├── database.ts        # Database connection
-│   └── utils.ts           # Utility functions
-├── scripts/               # Database scripts
-└── public/images/         # Static assets
-\`\`\`
+```
+app/                # App router, pages and API routes
+components/         # UI and layout components
+lib/                # Auth, DB, utils, RBAC
+drizzle/            # Migrations, snapshots, relations
+scripts/            # DB sync/migrate/init helpers
+public/             # Static assets and uploads
+```
 
-## Security Features
+Key files:
+- `lib/database.ts`: Pooled Postgres connection with timeouts
+- `lib/auth-config.ts`: NextAuth credentials setup
+- `lib/nextauth.ts`: session and role guards
+- `lib/rbac.ts`: role-to-route/feature mapping
+- `drizzle/schema.ts`: enums and tables for users, candidates, workflows, payments, expenses, salaries, logs
 
-- JWT-based authentication with secure token handling
-- Role-based access control (RBAC)
-- Password hashing with bcrypt
-- SQL injection prevention with parameterized queries
-- Audit logging for sensitive operations
-- File upload validation and size limits
+## Dashboards & Roles
 
-## Technologies Used
+- Super Admin: Full access, exports, user/role management
+- Admin: Employees roster, general oversight, limited exports
+- Receptionist: Candidate intake (CRUD)
+- Process Agent: Workflow stage operations, payment requests
+- Accountant: Approve stage payments, manage salaries and expenses
 
-- **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
-- **Backend**: Next.js API Routes, PostgreSQL
-- **Authentication**: JWT, bcrypt
-- **UI Components**: shadcn/ui, Radix UI
-- **Database**: PostgreSQL with raw SQL queries
-- **File Handling**: Built-in Next.js file upload
+## Scripts
+
+- dev: `next dev`
+- build: `next build`
+- start: `next start`
+- lint: `next lint`
+- db:sync:smart: `node scripts/sync-schema.js` (generate + push)
+
+Helpful direct invocations:
+- `node scripts/init-db.js`
+- `node scripts/migrate-db.js`
+- `node scripts/sync-schema.js generate|push|studio|help`
+
+## Tech Stack
+
+- Next.js 15, React 19, TypeScript
+- Drizzle ORM, PostgreSQL
+- NextAuth (Credentials)
+- Tailwind CSS, Radix UI/shadcn components
+- Swagger UI for API docs
+
+## Production Notes
+
+- Enable SSL for Postgres (handled automatically when `NODE_ENV=production` in `lib/database.ts`)
+- Set strong `NEXTAUTH_SECRET`
+- Consider image optimization/CDN; `next.config.mjs` sets `images.unoptimized: true`
+- Bundle analysis: set `ANALYZE=true` and run build
 
 ## License
 
-© 2024 MINT International. All rights reserved.
+© 2025 MINT International. All rights reserved.

@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get("status") || ""
     const paymentType = searchParams.get("payment_type") || ""
+    const mine = searchParams.get("mine") === "1"
     const page = Number.parseInt(searchParams.get("page") || "1")
     const limit = Number.parseInt(searchParams.get("limit") || "10")
     const offset = (page - 1) * limit
@@ -28,6 +29,13 @@ export async function GET(request: NextRequest) {
       paramCount++
       whereClause += ` AND p.payment_type = $${paramCount}`
       params.push(paymentType)
+    }
+
+    // Restrict to agent's own requests if mine=1
+    if (mine && auth.payload.role === 'process_agent') {
+      paramCount++
+      whereClause += ` AND p.created_by = $${paramCount}`
+      params.push(auth.payload.userId)
     }
 
     // Count total for pagination

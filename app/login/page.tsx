@@ -27,11 +27,13 @@ export default function LoginPage() {
     if (!loading && user) {
       const dashboardRoutes = {
         super_admin: "/dashboard/admin",
+        admin: "/dashboard/admin",
         receptionist: "/dashboard/receptionist",
         process_agent: "/dashboard/agent",
         accountant: "/dashboard/accounts",
-      }
-      router.push(dashboardRoutes[user.role as keyof typeof dashboardRoutes])
+      } as const
+      const target = dashboardRoutes[user.role as keyof typeof dashboardRoutes] || "/dashboard"
+      router.push(target)
     }
   }, [user, loading, router])
 
@@ -159,28 +161,6 @@ export default function LoginPage() {
               )}
             </Button>
           </form>
-
-          {/* Demo Credentials */}
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <h4 className="text-sm font-medium text-blue-900 mb-2">Demo Credentials:</h4>
-            <div className="text-xs text-blue-700 space-y-1">
-              <div>
-                <strong>Super Admin:</strong> admin@mintinternational.org
-              </div>
-              <div>
-                <strong>Receptionist:</strong> receptionist@mintinternational.org
-              </div>
-              <div>
-                <strong>Process Agent:</strong> agent@mintinternational.org
-              </div>
-              <div>
-                <strong>Accountant:</strong> accounts@mintinternational.org
-              </div>
-              <div className="mt-2">
-                <strong>Password:</strong> admin123 (for all accounts)
-              </div>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>

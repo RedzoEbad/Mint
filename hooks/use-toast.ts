@@ -143,6 +143,11 @@ function dispatch(action: Action) {
 type Toast = Omit<ToasterToast, "id">
 
 function toast({ ...props }: Toast) {
+  // Normalize empty strings/whitespace to suppress empty toasts globally
+  const normalizedTitle = typeof props.title === "string" ? props.title.trim() : props.title
+  const normalizedDescription = typeof props.description === "string" ? props.description.trim() : props.description
+  const hasContent = (normalizedTitle && String(normalizedTitle).length > 0) || (normalizedDescription && String(normalizedDescription).length > 0)
+
   const id = genId()
 
   const update = (props: ToasterToast) =>
@@ -152,10 +157,21 @@ function toast({ ...props }: Toast) {
     })
   const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
 
+  if (!hasContent) {
+    // Do not render empty toasts; return no-op handles
+    return {
+      id,
+      dismiss: () => {},
+      update: () => {},
+    }
+  }
+
   dispatch({
     type: "ADD_TOAST",
     toast: {
       ...props,
+      title: normalizedTitle,
+      description: normalizedDescription,
       id,
       open: true,
       onOpenChange: (open) => {

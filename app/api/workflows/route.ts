@@ -109,6 +109,38 @@ export async function POST(request: NextRequest) {
 
     const { candidate_id, company_id } = await request.json()
 
+    // Process agents can only create workflows for companies assigned to them
+    if (auth.payload.role === "process_agent") {
+      const assignment = await query(
+        `SELECT 1 FROM agent_company_assignments 
+         WHERE agent_id = $1 AND company_id = $2 AND active = true
+         LIMIT 1`,
+        [auth.payload.userId, company_id],
+      )
+      if (assignment.rows.length === 0) {
+        return NextResponse.json({ success: false, message: "Not assigned to this company" }, { status: 403 })
+      }
+    }
+
+    // Engagement checks: ensure interview selected and lock ownership
+    const engagement = await query(
+      `SELECT agent_id, interview_status, interview_result, locked_by_workflow FROM candidate_company_engagements WHERE candidate_id = $1 AND company_id = $2`,
+      [candidate_id, company_id],
+    )
+
+    if (engagement.rows.length > 0) {
+      const e = engagement.rows[0]
+      if (e.locked_by_workflow && e.agent_id && e.agent_id !== auth.payload.userId) {
+        return NextResponse.json({ success: false, message: "Engagement locked by another agent" }, { status: 403 })
+      }
+      if (e.interview_result !== 'selected') {
+        return NextResponse.json({ success: false, message: "Interview not selected yet" }, { status: 400 })
+      }
+    } else {
+      // If no engagement row yet, create a placeholder requiring interview selected before start
+      return NextResponse.json({ success: false, message: "No engagement found. Schedule and pass interview first." }, { status: 400 })
+    }
+
     // Check if workflow already exists for this candidate-company pair
     const existingResult = await query("SELECT id FROM workflow_stages WHERE candidate_id = $1 AND company_id = $2", [
       candidate_id,
@@ -116,10 +148,47 @@ export async function POST(request: NextRequest) {
     ])
 
     if (existingResult.rows.length > 0) {
-      return NextResponse.json(
-        { success: false, message: "Workflow already exists for this candidate-company pair" },
-        { status: 400 },
+      return NextResponse.json({
+        success: true,
+        message: "Workflow already exists. Redirecting to existing workflow",
+        workflowId: existingResult.rows[0].id,
+      })
+    }
+
+    // Business rule: If a candidate has an active workflow (initiated/in_progress) with another company,
+    // a process agent cannot start another workflow for a different company.
+    if (auth.payload.role === "process_agent") {
+      const activeResult = await query(
+        `SELECT id, company_id FROM workflow_stages 
+         WHERE candidate_id = $1 
+           AND overall_status IN ('initiated', 'in_progress')
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [candidate_id],
       )
+      if (activeResult.rows.length > 0) {
+        const active = activeResult.rows[0]
+        if (active.company_id !== company_id) {
+          return NextResponse.json(
+            {
+              success: false,
+              message: "Candidate already has an active workflow with another company. Complete or cancel it first.",
+            },
+            { status: 400 },
+          )
+        }
+      }
+    }
+
+    // Require interview to be passed (selected): prefer engagement as source of truth
+    if (engagement.rows.length > 0) {
+      const e = engagement.rows[0]
+      if (!(e.interview_status === 'completed' && e.interview_result === 'selected')) {
+        return NextResponse.json(
+          { success: false, message: "Interview not passed or not completed yet for this company" },
+          { status: 400 },
+        )
+      }
     }
 
     const workflowResult = await query(
@@ -127,6 +196,12 @@ export async function POST(request: NextRequest) {
        VALUES ($1, $2, $3)
        RETURNING id`,
       [candidate_id, company_id, auth.payload.userId],
+    )
+
+    // Lock engagement to this agent upon workflow creation
+    await query(
+      `UPDATE candidate_company_engagements SET agent_id = $1, locked_by_workflow = true, updated_at = now() WHERE candidate_id = $2 AND company_id = $3`,
+      [auth.payload.userId, candidate_id, company_id],
     )
 
     return NextResponse.json({

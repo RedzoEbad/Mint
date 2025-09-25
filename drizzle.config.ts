@@ -5,7 +5,8 @@ import { config } from "dotenv"
 config({ path: ".env.local" })
 
 export default {
-  schema: "./lib/db/schema/index.ts",
+  // Use the generated Drizzle schema for tooling; runtime also imports from drizzle/schema
+  schema: "./drizzle/schema.ts",
   out: "./drizzle",
   dialect: "postgresql",
   dbCredentials: {

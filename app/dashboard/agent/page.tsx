@@ -9,12 +9,13 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Workflow, Calendar, CheckCircle, Clock, AlertCircle } from "lucide-react"
+import { Workflow, Calendar, CheckCircle, Clock, AlertCircle, Users, Search, Play, ExternalLink } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { EmptyWorkflows, EmptyInterviews, EmptySearch } from "@/components/ui/empty-state"
 import WorkflowTable from "@/components/workflows/workflow-table"
-import InterviewTable from "@/components/interviews/interview-table"
+ 
 
 interface WorkflowStats {
   active: number
@@ -52,16 +53,35 @@ export default function ProcessAgentDashboard() {
   const { user } = useAuth()
   const [stats, setStats] = useState<WorkflowStats | null>(null)
   const [workflows, setWorkflows] = useState<WorkflowItem[]>([])
-  const [interviews, setInterviews] = useState<Interview[]>([])
-  const [loadingInterviews, setLoadingInterviews] = useState<boolean>(true)
+  
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("overview")
   const { toast } = useToast()
+  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([])
+  const [companyId, setCompanyId] = useState("")
+  const [candidateId, setCandidateId] = useState("")
+  const [interviewDate, setInterviewDate] = useState("")
+  const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     fetchStats()
     fetchWorkflows()
-    fetchInterviews()
+    
+  }, [])
+
+  useEffect(() => {
+    // load assigned companies for scheduler
+    ;(async () => {
+      try {
+        const token = getValidToken()
+        const res = await fetch(`/api/companies`, { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: "include" })
+        const data = await res.json()
+        if (data.success) {
+          setCompanies(data.data || [])
+          if (!companyId && data.data?.length) setCompanyId(data.data[0].id)
+        }
+      } catch {}
+    })()
   }, [])
 
   const fetchStats = async () => {
@@ -117,33 +137,7 @@ export default function ProcessAgentDashboard() {
     }
   }
 
-  const fetchInterviews = async () => {
-    try {
-      setLoadingInterviews(true)
-      const token = getValidToken()
-      const response = await fetch("/api/interviews", {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        credentials: "include",
-      })
-      
-      if (!response.ok) {
-        if (response.status === 401) {
-          console.warn("Unauthorized access to interviews - token may be invalid")
-          return
-        }
-        throw new Error(`HTTP ${response.status}`)
-      }
-      
-      const data = await response.json()
-      if (data.success) {
-        setInterviews(data.data)
-      }
-    } catch (error) {
-      console.error("Error fetching interviews:", error)
-    } finally {
-      setLoadingInterviews(false)
-    }
-  }
+  
 
   const updateWorkflowStatus = async (workflowId: string, statusType: string, newStatus: string) => {
     try {
@@ -276,6 +270,119 @@ export default function ProcessAgentDashboard() {
   return (
     <DashboardLayout title="Process Agent Dashboard">
       <div className="space-y-6">
+        {/* Hero Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-blue-100 rounded-lg">
+                  <Search className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Search & Select</h3>
+                  <p className="text-sm text-gray-600">Find candidates by job and keywords</p>
+                  <Button size="sm" className="mt-2" onClick={() => window.location.href = "/dashboard/agent/pool"}>
+                    Go to Pool
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-green-100 rounded-lg">
+                  <Calendar className="h-6 w-6 text-green-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Manage Engagements</h3>
+                  <p className="text-sm text-gray-600">Set interview status and notes</p>
+                  <Button size="sm" className="mt-2" onClick={() => window.location.href = "/dashboard/agent/pool"}>
+                    Go to Pool
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-gradient-to-r from-purple-50 to-violet-50 border-purple-200">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-purple-100 rounded-lg">
+                  <Workflow className="h-6 w-6 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Continue Workflows</h3>
+                  <p className="text-sm text-gray-600">Track and manage active workflows</p>
+                  <Button size="sm" className="mt-2" onClick={() => window.location.href = "/dashboard/workflows"}>
+                    Go to Workflows
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Status Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-yellow-100 rounded-lg">
+                  <Users className="h-5 w-5 text-yellow-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">To Select</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats?.pending_interviews || 0}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Clock className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Interviews Pending</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats?.pending_interviews || 0}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Ready to Start</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats?.active || 0}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <Workflow className="h-5 w-5 text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">In Progress</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats?.active || 0}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card>
@@ -321,10 +428,9 @@ export default function ProcessAgentDashboard() {
 
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="workflows">Workflows</TabsTrigger>
-            <TabsTrigger value="interviews">Interviews</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
@@ -350,30 +456,14 @@ export default function ProcessAgentDashboard() {
                 </CardContent>
               </Card>
 
-              {/* Upcoming Interviews */}
+              {/* Engagements emphasis */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Upcoming Interviews</CardTitle>
-                  <CardDescription>Scheduled interviews</CardDescription>
+                  <CardTitle>Engagements</CardTitle>
+                  <CardDescription>Update interview statuses in Pool</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {interviews
-                      .filter((i) => i.interview_status === "scheduled")
-                      .slice(0, 5)
-                      .map((interview) => (
-                        <div key={interview.id} className="flex items-center justify-between p-3 border rounded-lg">
-                          <div>
-                            <p className="font-medium">{interview.candidate_name}</p>
-                            <p className="text-sm text-gray-500">{interview.company_name}</p>
-                            <p className="text-xs text-gray-400">
-                              {new Date(interview.interview_date).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <Badge className="bg-blue-100 text-blue-800">{interview.interview_type.toUpperCase()}</Badge>
-                        </div>
-                      ))}
-                  </div>
+                  <div className="text-sm text-gray-600">Use Pool to manage interview status and add notes per engagement.</div>
                 </CardContent>
               </Card>
             </div>
@@ -391,17 +481,7 @@ export default function ProcessAgentDashboard() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="interviews" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Interview Management</CardTitle>
-                <CardDescription>Schedule and manage candidate interviews</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <InterviewTable />
-              </CardContent>
-            </Card>
-          </TabsContent>
+          
         </Tabs>
       </div>
     </DashboardLayout>
