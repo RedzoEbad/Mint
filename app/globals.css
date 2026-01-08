@@ -175,12 +175,25 @@
     }
   }
   
-  /* Dark mode pattern adjustments */
-  .dark .sidebar-pattern {
-    opacity: 0.08;
+  /* Premium UI Utilities */
+  .glass-panel {
+    @apply bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border border-white/20 dark:border-gray-700/30;
   }
   
-  .dark .sidebar-pattern-footer {
-    opacity: 0.12;
+  .premium-shadow {
+    box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.08), 0 4px 12px -4px rgba(0, 0, 0, 0.03);
+  }
+  
+  .premium-shadow-hover {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .premium-shadow-hover:hover {
+    box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.12), 0 8px 16px -8px rgba(0, 0, 0, 0.05);
+    transform: translateY(-2px);
+  }
+
+  .nav-active-gradient {
+    @apply bg-gradient-to-r from-blue-600 to-indigo-600 shadow-lg shadow-blue-500/25;
   }
 }

@@ -1,9 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { verifyToken } from "@/lib/auth"
+import { getToken } from "next-auth/jwt"
 import { logger, getRequestContext } from "@/lib/logger"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
+
+const secret = process.env.NEXTAUTH_SECRET || "mint-international-secret-key-2024"
 
 let browserPromise: Promise<any> | null = null
 
@@ -26,16 +28,11 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
   }
 
   try {
-    // Enforce that only super_admin can generate/download PDFs
-    const authHeaderUpper = request.headers.get("Authorization")
-    const token = authHeaderUpper?.replace("Bearer ", "") || request.cookies.get("auth-token")?.value
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-    const payload = await verifyToken(token)
+    // Authenticate using NextAuth
+    const token = await getToken({ req: request, secret })
     const allowed = ["super_admin", "receptionist"]
-    if (!payload || !allowed.includes(payload.role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    if (!token || !allowed.includes(token.role as string)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
     const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || "localhost:3000"
     const proto =
@@ -43,7 +40,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     const origin = `${proto}://${host}`
 
     // Fetch candidate data directly (avoid rendering the dashboard page entirely)
-    const authHeader = request.headers.get("authorization") || authHeaderUpper
+    const authHeader = request.headers.get("authorization")
     const cookieHeader = request.headers.get("cookie")
     const apiUrl = `${origin}/api/candidates/${encodeURIComponent(candidateId)}`
     const forwardHeaders: Record<string, string> = {}
@@ -161,7 +158,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     // Ensure images and fonts are loaded
     try {
       await page.evaluate(() => (document as any).fonts?.ready?.then?.(() => null))
-    } catch {}
+    } catch { }
     await page.evaluate(async () => {
       const images = Array.from(document.images)
       await Promise.all(

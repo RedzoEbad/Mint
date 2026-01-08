@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,11 +11,9 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { getValidToken } from "@/lib/token-utils"
 import { format } from "date-fns"
 import { Loader2, CalendarIcon, Plus, X, FileDown, Upload, Image as ImageIcon, Info, ArrowLeft } from "lucide-react"
 import { PageLoader } from "@/components/ui/page-loader"
-import { AspectRatio } from "@/components/ui/aspect-ratio"
 import { useToast } from "@/hooks/use-toast"
 
 export default function EditCandidatePage() {
@@ -55,37 +53,34 @@ export default function EditCandidatePage() {
 
   useEffect(() => {
     if (!id) return
-    ;(async () => {
-      try {
-        const token = getValidToken()
-        const res = await fetch(`/api/candidates/${id}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        })
-        const json = await res.json()
-        if (json.success) {
-          const c = json.data
-          setForm({
-            ...form,
-            ...c,
-            date_of_birth: c.date_of_birth ? new Date(c.date_of_birth) : undefined,
-            date_of_issue: c.date_of_issue ? new Date(c.date_of_issue) : undefined,
-            date_of_expiry: c.date_of_expiry ? new Date(c.date_of_expiry) : undefined,
-          })
-          setLanguages(Array.isArray(c.languages_known) ? c.languages_known : [])
-          if (c.profile_image) {
-            const url = typeof c.profile_image === 'string' && !c.profile_image.startsWith('http') && !c.profile_image.startsWith('/')
-              ? `/${c.profile_image}`
-              : c.profile_image
-            setProfileImagePreview(url)
+      ; (async () => {
+        try {
+          const res = await fetch(`/api/candidates/${id}`)
+          const json = await res.json()
+          if (json.success) {
+            const c = json.data
+            setForm({
+              ...form,
+              ...c,
+              date_of_birth: c.date_of_birth ? new Date(c.date_of_birth) : undefined,
+              date_of_issue: c.date_of_issue ? new Date(c.date_of_issue) : undefined,
+              date_of_expiry: c.date_of_expiry ? new Date(c.date_of_expiry) : undefined,
+            })
+            setLanguages(Array.isArray(c.languages_known) ? c.languages_known : [])
+            if (c.profile_image) {
+              const url = typeof c.profile_image === 'string' && !c.profile_image.startsWith('http') && !c.profile_image.startsWith('/')
+                ? `/${c.profile_image}`
+                : c.profile_image
+              setProfileImagePreview(url)
+            }
+            if (c.cv_file) setCvFileName(c.cv_file.split("/").pop())
           }
-          if (c.cv_file) setCvFileName(c.cv_file.split("/").pop())
+        } catch (e) {
+          console.error("Load candidate error", e)
+        } finally {
+          setLoading(false)
         }
-      } catch (e) {
-        console.error("Load candidate error", e)
-      } finally {
-        setLoading(false)
-      }
-    })()
+      })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
@@ -102,8 +97,6 @@ export default function EditCandidatePage() {
   function removeLanguage(lang: string) {
     setLanguages((l) => l.filter((x) => x !== lang))
   }
-
-  const tokenMemo = useMemo(() => getValidToken(), [])
 
   const handleProfileImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -127,10 +120,10 @@ export default function EditCandidatePage() {
     try {
       const fd = new FormData()
       fd.append("file", file)
-      const res = await fetch("/api/uploads/profile-images", { method: "POST", headers: tokenMemo ? { Authorization: `Bearer ${tokenMemo}` } : {}, body: fd })
+      const res = await fetch("/api/uploads/profile-images", { method: "POST", body: fd })
       const data = await res.json()
       if (data.success) setField("profile_image", data.url)
-    } catch {}
+    } catch { }
   }
 
   const handleCvFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -156,17 +149,16 @@ export default function EditCandidatePage() {
     try {
       const fd = new FormData()
       fd.append("file", file)
-      const res = await fetch("/api/uploads/cv-docs", { method: "POST", headers: tokenMemo ? { Authorization: `Bearer ${tokenMemo}` } : {}, body: fd })
+      const res = await fetch("/api/uploads/cv-docs", { method: "POST", body: fd })
       const data = await res.json()
       if (data.success) setField("cv_file", data.url)
-    } catch {}
+    } catch { }
   }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
     try {
-      const token = getValidToken()
       const body = {
         ...form,
         date_of_birth: form.date_of_birth ? format(form.date_of_birth, "yyyy-MM-dd") : null,
@@ -178,14 +170,19 @@ export default function EditCandidatePage() {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify(body),
       })
       const json = await res.json()
-      if (json.success) router.push(`/dashboard/candidates/${id}`)
+      if (json.success) {
+        toast({ title: "Success", description: "Candidate updated successfully" })
+        router.push("/dashboard/candidates")
+      } else {
+        toast({ title: "Error", description: json.message || "Failed to update", variant: "destructive" })
+      }
     } catch (e) {
       console.error("Save error", e)
+      toast({ title: "Error", description: "Failed to save changes", variant: "destructive" })
     } finally {
       setSaving(false)
     }
@@ -327,7 +324,14 @@ export default function EditCandidatePage() {
           <CardContent className="grid gap-4 md:grid-cols-2">
             <Input placeholder="Post applied for" value={form.post_applied_for} onChange={(e) => setField("post_applied_for", e.target.value)} />
             <Input placeholder="Referred by" value={form.referred_by} onChange={(e) => setField("referred_by", e.target.value)} />
-            <Input placeholder="Experience total (years)" value={form.experience_total} onChange={(e) => setField("experience_total", e.target.value)} />
+            <Input
+              placeholder="Experience total (years)"
+              value={form.experience_total}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9.]/g, '')
+                setField("experience_total", val)
+              }}
+            />
             <Textarea placeholder="Remarks" value={form.remarks} onChange={(e) => setField("remarks", e.target.value)} />
           </CardContent>
         </Card>

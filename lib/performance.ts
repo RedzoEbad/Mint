@@ -28,11 +28,11 @@ class PerformanceMonitor {
 
     const end = performance.now()
     const duration = end - timer.start
-    
+
     timer.end = end
     timer.duration = duration
 
-    console.log(`⏱️  ${label}: ${duration.toFixed(2)}ms`)
+    // console.log(`⏱️  ${label}: ${duration.toFixed(2)}ms`)
     return duration
   }
 
@@ -75,12 +75,12 @@ export function withTiming<T extends any[], R>(
 ) {
   return async (...args: T): Promise<R> => {
     const start = performance.now()
-    console.log(`🚀 Starting ${routeName}`)
-    
+    // console.log(`🚀 Starting ${routeName}`)
+
     try {
       const result = await handler(...args)
       const duration = performance.now() - start
-      console.log(`✅ ${routeName} completed in ${duration.toFixed(2)}ms`)
+      // console.log(`✅ ${routeName} completed in ${duration.toFixed(2)}ms`)
       return result
     } catch (error) {
       const duration = performance.now() - start

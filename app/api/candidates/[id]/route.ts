@@ -1,20 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/database"
-import { verifyToken } from "@/lib/auth"
+import { getToken } from "next-auth/jwt"
+
+const secret = process.env.NEXTAUTH_SECRET || "mint-international-secret-key-2024"
 
 export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params
-    const authHeader = request.headers.get("Authorization")
-    const token = authHeader?.replace("Bearer ", "") || request.cookies.get("auth-token")?.value
+    const token = await getToken({ req: request, secret })
 
     if (!token) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
-    }
-
-    const payload = await verifyToken(token)
-    if (!payload) {
-      return NextResponse.json({ success: false, message: "Invalid token" }, { status: 401 })
     }
 
     const candidateResult = await query(
@@ -55,15 +51,13 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
 export async function PUT(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params
-    const authHeader = request.headers.get("Authorization")
-    const token = authHeader?.replace("Bearer ", "") || request.cookies.get("auth-token")?.value
+    const token = await getToken({ req: request, secret })
 
     if (!token) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
     }
 
-    const payload = await verifyToken(token)
-    if (!payload || !["super_admin", "receptionist"].includes(payload.role)) {
+    if (!["super_admin", "receptionist"].includes(token.role as string)) {
       return NextResponse.json({ success: false, message: "Insufficient permissions" }, { status: 403 })
     }
 
@@ -153,15 +147,13 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
 export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params
-    const authHeader = request.headers.get("Authorization")
-    const token = authHeader?.replace("Bearer ", "") || request.cookies.get("auth-token")?.value
+    const token = await getToken({ req: request, secret })
 
     if (!token) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
     }
 
-    const payload = await verifyToken(token)
-    if (!payload || !["super_admin", "receptionist"].includes(payload.role)) {
+    if (!["super_admin", "receptionist"].includes(token.role as string)) {
       return NextResponse.json({ success: false, message: "Insufficient permissions" }, { status: 403 })
     }
 
@@ -176,3 +168,4 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
     return NextResponse.json({ success: false, message: "Internal server error" }, { status: 500 })
   }
 }
+

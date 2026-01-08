@@ -13,8 +13,8 @@ export default function DashboardPage() {
       // Redirect based on user role
       const dashboardRoutes = {
         super_admin: "/dashboard/admin",
-        admin: "/dashboard/users", 
-        receptionist: "/dashboard/receptionist",
+        admin: "/dashboard/users",
+        receptionist: "/dashboard/candidates",
         process_agent: "/dashboard/agent",
         accountant: "/dashboard/accounts",
       }

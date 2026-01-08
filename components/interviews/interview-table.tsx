@@ -16,6 +16,7 @@ import { useAuth } from "@/components/auth-provider"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Card, CardContent } from "@/components/ui/card"
+import { useCompany } from "@/components/company-provider"
 
 type InterviewRow = {
   id: string
@@ -63,11 +64,7 @@ export default function InterviewTable({
   const [editStatus, setEditStatus] = useState<string>("")
   const [editResult, setEditResult] = useState<string>("")
   const [savingEdit, setSavingEdit] = useState(false)
-  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([])
-  const [companyId, setCompanyId] = useState<string>(
-    searchParams.get("company_id") ||
-      (typeof window !== "undefined" ? localStorage.getItem("selectedCompanyId") || "" : ""),
-  )
+  const { companies, selectedCompanyId: companyId, setSelectedCompanyId: setCompanyId } = useCompany()
 
   const queryString = useMemo(() => {
     const sp = new URLSearchParams()
@@ -128,30 +125,6 @@ export default function InterviewTable({
       controller.abort()
     }
   }, [queryString])
-
-  useEffect(() => {
-    // Load companies for agent selector
-    if (!user) return
-    ;(async () => {
-      try {
-        const token = getValidToken()
-        const res = await fetch(`/api/companies`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-          credentials: "include",
-        })
-        const data = await res.json()
-        if (data.success) {
-          setCompanies(data.data || [])
-          const stored = typeof window !== "undefined" ? localStorage.getItem("selectedCompanyId") || "" : ""
-          if (stored && data.data?.some((c: any) => c.id === stored)) {
-            setCompanyId(stored)
-          } else if (!companyId && data.data?.length) {
-            setCompanyId(data.data[0].id)
-          }
-        }
-      } catch {}
-    })()
-  }, [user])
 
   // Persist changes and listen for global switcher changes
   useEffect(() => {
@@ -547,7 +520,7 @@ export default function InterviewTable({
                               <Eye className="h-4 w-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => { setEditRow(r as any); setEditType(r.interview_type); setEditDate(r.interview_date?.slice(0,16) || ""); setEditStatus(r.interview_status); setEditResult(r.result || ""); setEditOpen(true) }}>
+                            <DropdownMenuItem onClick={() => { setEditRow(r as any); setEditType(r.interview_type); setEditDate(r.interview_date?.slice(0, 16) || ""); setEditStatus(r.interview_status); setEditResult(r.result || ""); setEditOpen(true) }}>
                               <Edit className="h-4 w-4 mr-2" />
                               Edit Interview
                             </DropdownMenuItem>

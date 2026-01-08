@@ -1,4 +1,4 @@
-  "use client"
+"use client"
 
 import type React from "react"
 
@@ -41,6 +41,7 @@ import { cn } from "@/lib/utils"
 import { routeRoleMap } from "@/lib/rbac"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CommandDialog, CommandInput, CommandList, CommandGroup, CommandItem, CommandEmpty, CommandSeparator } from "@/components/ui/command"
+import { useCompany } from "@/components/company-provider"
 
 interface NavigationItem {
   name: string
@@ -74,10 +75,9 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children, title }: DashboardLayoutProps) {
   const { user, logout } = useAuth()
+  const { companies, selectedCompanyId, setSelectedCompanyId } = useCompany()
   const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([])
-  const [companyId, setCompanyId] = useState<string>("")
   const [commandOpen, setCommandOpen] = useState(false)
 
   const userInitials = (user?.full_name || "")
@@ -153,7 +153,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="relative z-10 flex-1 space-y-1 px-2 py-4">
+      <nav className="relative z-10 flex-1 space-y-2 px-3 py-6">
         {rolePrunedNavigation.map((item) => {
           const isActive = item.href === activeHref
 
@@ -163,19 +163,24 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
               href={item.href}
               onClick={() => mobile && setSidebarOpen(false)}
               className={cn(
-                "group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-all duration-200 relative",
+                "group flex items-center px-4 py-2.5 text-sm font-semibold rounded-xl transition-all duration-300 relative overflow-hidden",
                 isActive
-                  ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg"
-                  : "text-gray-700 dark:text-gray-300 hover:bg-blue-50/80 dark:hover:bg-gray-800/80 hover:text-blue-600 dark:hover:text-blue-400 hover:shadow-sm sidebar-backdrop",
+                  ? "nav-active-gradient text-white"
+                  : "text-slate-600 dark:text-slate-400 hover:bg-blue-50/50 dark:hover:bg-gray-800/50 hover:text-blue-600 dark:hover:text-blue-400",
               )}
             >
               <item.icon
                 className={cn(
-                  "mr-3 h-5 w-5 flex-shrink-0 transition-colors",
-                  isActive ? "text-white" : "text-gray-400 dark:text-gray-500 group-hover:text-blue-600 dark:group-hover:text-blue-400",
+                  "mr-3 h-5 w-5 flex-shrink-0 transition-all duration-300",
+                  isActive
+                    ? "text-white scale-110"
+                    : "text-slate-400 group-hover:text-blue-600 group-hover:scale-110",
                 )}
               />
               {item.name}
+              {isActive && (
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-white ring-4 ring-white/20 rounded-r-full" />
+              )}
             </Link>
           )
         })}
@@ -189,38 +194,8 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
     </div>
   )
 
-  // Load assigned companies for process agents and hydrate switcher from localStorage
-  useEffect(() => {
-    if (!user || user.role !== "process_agent") return
-    ;(async () => {
-      try {
-        const res = await fetch(`/api/companies`, { credentials: "include" })
-        const data = await res.json()
-        if (data?.success) {
-          const list = data.data || []
-          setCompanies(list)
-          const stored = typeof window !== "undefined" ? localStorage.getItem("selectedCompanyId") || "" : ""
-          if (stored && list.some((c: any) => c.id === stored)) {
-            setCompanyId(stored)
-          } else if (list.length && !companyId) {
-            const first = list[0].id
-            setCompanyId(first)
-            if (typeof window !== "undefined") localStorage.setItem("selectedCompanyId", first)
-          }
-        }
-      } catch {}
-    })()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.role])
-
   const onChangeCompany = (id: string) => {
-    setCompanyId(id)
-    try {
-      if (typeof window !== "undefined") {
-        localStorage.setItem("selectedCompanyId", id)
-        window.dispatchEvent(new CustomEvent("companyChanged", { detail: { id } }))
-      }
-    } catch {}
+    setSelectedCompanyId(id)
   }
 
   // Global command palette shortcut
@@ -254,35 +229,44 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
       {/* Main Content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+        <header className="glass-panel border-b border-slate-200/60 h-16 flex items-center px-6 z-20">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-6">
               {/* Mobile Menu Button */}
-              <Sheet>
-                <SheetTrigger asChild>
-                  <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => setSidebarOpen(true)}>
-                    <Menu className="h-5 w-5" />
-                  </Button>
-                </SheetTrigger>
-              </Sheet>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="lg:hidden hover:bg-slate-100 rounded-xl"
+                onClick={() => setSidebarOpen(true)}
+              >
+                <Menu className="h-5 w-5 text-slate-600" />
+              </Button>
 
-              {/* Page Title */}
-              <div>
-                <h1 className="text-xl font-semibold text-gray-900">{title || "Dashboard"}</h1>
-                <p className="text-sm text-gray-500">{user?.role ? roleLabels[user.role] : ""}</p>
+              {/* Page Title & Breadcrumb-ish */}
+              <div className="flex flex-col">
+                <h1 className="text-lg font-bold text-slate-900 leading-tight">{title || "Dashboard"}</h1>
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    {user?.role ? roleLabels[user.role] : "Portal"}
+                  </p>
+                </div>
               </div>
 
               {/* Company Switcher for Process Agents */}
               {user?.role === "process_agent" && (
-                <div className="hidden md:flex items-center gap-2 ml-2">
-                  <span className="text-sm text-gray-600">Company</span>
-                  <Select value={companyId} onValueChange={onChangeCompany}>
-                    <SelectTrigger className="w-56">
+                <div className="hidden xl:flex items-center gap-3 ml-4">
+                  <div className="h-8 w-px bg-slate-200" />
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Client</span>
+                  <Select value={selectedCompanyId} onValueChange={onChangeCompany}>
+                    <SelectTrigger className="w-64 h-9 bg-slate-50 border-slate-200/80 hover:bg-white hover:border-blue-300 transition-all rounded-lg text-sm font-medium">
                       <SelectValue placeholder="Select company" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="rounded-xl border-slate-200 shadow-2xl">
                       {companies.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        <SelectItem key={c.id} value={c.id} className="font-medium focus:bg-blue-50 focus:text-blue-700">
+                          {c.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -290,12 +274,22 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
               )}
             </div>
 
-            {/* Right Controls: Command bar, More, User */}
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setCommandOpen(true)} className="hidden md:inline-flex gap-2">
-                <SearchIcon className="h-4 w-4" />
-                Command
-                <span className="ml-2 text-xs text-gray-500">⌘K</span>
+            {/* Right Controls */}
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCommandOpen(true)}
+                className="hidden md:flex items-center gap-3 h-9 bg-slate-50 border-slate-200/80 hover:bg-white hover:border-blue-400 hover:shadow-md transition-all rounded-lg group"
+              >
+                {/* <div className="flex items-center gap-2 text-slate-400 group-hover:text-blue-600 transition-colors">
+                  <SearchIcon className="h-4 w-4" />
+                  <span className="text-xs font-bold uppercase tracking-wider">Quick Search</span>
+                </div>
+                <div className="flex items-center gap-1 bg-white border border-slate-200 rounded px-1.5 py-0.5 shadow-sm group-hover:border-blue-200 transition-colors">
+                  <CommandIcon className="h-2.5 w-2.5 text-slate-400 group-hover:text-blue-500" />
+                  <span className="text-[10px] font-bold text-slate-500 group-hover:text-blue-600">K</span>
+                </div> */}
               </Button>
 
               {/* More menu with low-use links */}
@@ -308,7 +302,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>More</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  
+
                   <DropdownMenuItem asChild>
                     <Link href="/dashboard/candidates" className="cursor-pointer">
                       <Users className="mr-2 h-4 w-4" /> Candidates
@@ -340,9 +334,9 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
               {/* User Menu */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-medium">
+                  <Button variant="ghost" className="relative group p-0.5 rounded-full hover:bg-blue-50 transition-all duration-300 ring-2 ring-transparent hover:ring-blue-100 ring-offset-2">
+                    <Avatar className="h-9 w-9 border border-slate-200 shadow-sm transition-transform duration-300 group-hover:scale-105">
+                      <AvatarFallback className="nav-active-gradient text-white text-xs font-bold">
                         {userInitials}
                       </AvatarFallback>
                     </Avatar>
@@ -374,15 +368,15 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
         </header>
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-slate-50/40">
           <div className="relative min-h-full">
-            {/* Header Pattern */}
-            <div className="absolute top-0 right-0 w-64 h-32 opacity-5 overflow-hidden pointer-events-none">
-              <Image src="/images/header-pattern.png" alt="Header Pattern" fill className="object-cover" />
-            </div>
+            {/* Design Elements */}
+            <div className="absolute top-0 right-0 w-full h-96 bg-gradient-to-br from-blue-100/20 via-transparent to-transparent pointer-events-none" />
 
             {/* Content */}
-            <div className="relative z-10 p-6">{children}</div>
+            <div className="relative z-10 px-8 py-8 animate-fade-in">
+              {children}
+            </div>
           </div>
         </main>
         {/* Global Command Palette */}
@@ -397,7 +391,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
             </CommandGroup>
             <CommandSeparator />
             <CommandGroup heading="Shortcuts">
-              
+
               <CommandItem onSelect={() => { setCommandOpen(false); location.assign("/dashboard/workflows") }}>Start or open workflow</CommandItem>
             </CommandGroup>
           </CommandList>

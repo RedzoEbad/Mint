@@ -29,6 +29,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
 
   useEffect(() => {
+    // Clean up redundant localStorage auth-token
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("auth-token")
+    }
+
     if (status !== "loading") {
       setLoading(false)
     }
@@ -50,7 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }, 100)
         return true
       }
-      
+
       return false
     } catch (error) {
       console.error("Login error:", error)

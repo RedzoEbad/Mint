@@ -4,7 +4,14 @@ import { query } from "@/lib/database"
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await verifyToken(request)
+    const authHeader = request.headers.get("Authorization")
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const token = authHeader.split(" ")[1]
+    const user = await verifyToken(token)
+
     if (!user || user.role !== "super_admin") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }

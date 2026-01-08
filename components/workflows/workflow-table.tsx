@@ -11,6 +11,7 @@ import { getValidToken } from "@/lib/token-utils"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { ExternalLink } from "lucide-react"
+import { useCompany } from "@/components/company-provider"
 
 type WorkflowRow = {
   id: string
@@ -41,8 +42,7 @@ export default function WorkflowTable({ page = 1, limit = 10, onPageChange, onLi
   const [loading, setLoading] = useState<boolean>(true)
   const [status, setStatus] = useState<string>(searchParams.get("status") || "all")
   const [search, setSearch] = useState<string>(searchParams.get("search") || "")
-  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([])
-  const [companyId, setCompanyId] = useState<string>(searchParams.get("company_id") || "")
+  const { companies, selectedCompanyId: companyId, setSelectedCompanyId: setCompanyId } = useCompany()
 
   const queryString = useMemo(() => {
     const sp = new URLSearchParams()
@@ -98,43 +98,6 @@ export default function WorkflowTable({ page = 1, limit = 10, onPageChange, onLi
       controller.abort()
     }
   }, [queryString, companyId])
-
-  // Load companies and hydrate companyId from localStorage after mount to avoid SSR mismatch
-  useEffect(() => {
-    ;(async () => {
-      try {
-        const token = getValidToken()
-        const res = await fetch(`/api/companies`, { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: "include" })
-        const data = await res.json()
-        if (data.success) {
-          setCompanies(data.data || [])
-          if (typeof window !== "undefined") {
-            const stored = localStorage.getItem("selectedCompanyId") || ""
-            if (stored && data.data?.some((c: any) => c.id === stored)) {
-              setCompanyId(stored)
-            } else if (!companyId && data.data?.length) {
-              setCompanyId(data.data[0].id)
-            }
-          }
-        }
-      } catch {}
-    })()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  useEffect(() => {
-    if (companyId && typeof window !== "undefined") localStorage.setItem("selectedCompanyId", companyId)
-  }, [companyId])
-
-  useEffect(() => {
-    function onCompanyChanged(e: any) {
-      if (e?.detail?.id) setCompanyId(e.detail.id)
-    }
-    if (typeof window !== "undefined") {
-      window.addEventListener("companyChanged", onCompanyChanged as any)
-      return () => window.removeEventListener("companyChanged", onCompanyChanged as any)
-    }
-  }, [])
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, string> = {

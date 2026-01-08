@@ -20,6 +20,7 @@ export interface JWTPayload {
   role: string
   full_name?: string
   phone?: string
+  [key: string]: unknown
 }
 
 export async function generateToken(payload: JWTPayload): Promise<string> {
@@ -34,40 +35,24 @@ export async function verifyToken(token: string): Promise<JWTPayload | null> {
   try {
     // Validate token format before attempting verification
     if (!token || typeof token !== 'string') {
-      console.warn("Invalid token: token is empty or not a string")
       return null
     }
 
     // Check if token has the correct JWT format (3 parts separated by dots)
     const tokenParts = token.split('.')
     if (tokenParts.length !== 3) {
-      console.warn("Invalid token format: JWT must have 3 parts separated by dots")
       return null
     }
 
     // Check if token parts are not empty
     if (tokenParts.some(part => part.length === 0)) {
-      console.warn("Invalid token format: JWT parts cannot be empty")
       return null
     }
 
     const { payload } = await jwtVerify(token, secret)
     return payload as JWTPayload
   } catch (error) {
-    // Log specific error types for better debugging
-    if (error instanceof Error) {
-      if (error.message.includes('Invalid Compact JWS')) {
-        console.warn("JWT verification failed: Invalid token format")
-      } else if (error.message.includes('expired')) {
-        console.warn("JWT verification failed: Token expired")
-      } else if (error.message.includes('signature')) {
-        console.warn("JWT verification failed: Invalid signature")
-      } else {
-        console.warn("JWT verification failed:", error.message)
-      }
-    } else {
-      console.warn("JWT verification failed: Unknown error")
-    }
+    // Token verification failed silently
     return null
   }
 }

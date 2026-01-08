@@ -1,3 +1,3 @@
-export { default } from "../../../candidates/[id]/page.tsx"
+export { default } from "../../../candidates/[id]/page"
 
 

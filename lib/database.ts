@@ -23,8 +23,8 @@ export async function testConnection() {
     const client = await pool.connect()
     const result = await client.query("SELECT NOW()")
     client.release()
-    console.log("Database connected successfully:", result.rows[0])
-    return true
+    // Connection check
+    await pool.query("SELECT 1")
   } catch (error) {
     console.error("Database connection error:", error)
     return false
@@ -37,7 +37,6 @@ export async function query(text: string, params?: any[]) {
   try {
     const result = await pool.query(text, params)
     const duration = Date.now() - start
-    console.log("Executed query", { text, duration, rows: result.rowCount })
     return result
   } catch (error) {
     console.error("Database query error:", error)

@@ -4,7 +4,14 @@ import { query } from "@/lib/database"
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await verifyToken(request)
+    const authHeader = request.headers.get("Authorization")
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const token = authHeader.split(" ")[1]
+    const user = await verifyToken(token)
+
     if (!user || user.role !== "super_admin") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
@@ -94,7 +101,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       candidates: candidates.rows,
       exportedAt: new Date().toISOString(),
-      exportedBy: user.username,
+      exportedBy: user.full_name || user.email,
     })
   } catch (error) {
     console.error("Export candidates error:", error)

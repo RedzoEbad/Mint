@@ -12,7 +12,6 @@ import { Building2, Factory, Mail, MapPin, Phone, User2 } from "lucide-react"
 import { COUNTRIES } from "@/components/data/countries"
 import { useRouter } from "next/navigation"
 
-export default function NewCompanyPage() { return null }
 export default function NewCompanyPage() {
   const router = useRouter()
   const { toast } = useToast()

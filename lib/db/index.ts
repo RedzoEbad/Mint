@@ -19,10 +19,9 @@ export const db = drizzle(pool, { schema })
 export async function testConnection() {
   try {
     const client = await pool.connect()
-    const result = await client.query("SELECT NOW()")
-    client.release()
-    console.log("Database connected successfully:", result.rows[0])
-    return true
+    // Connection check
+    await pool.query("SELECT 1")
+    return pool
   } catch (error) {
     console.error("Database connection error:", error)
     return false

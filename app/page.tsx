@@ -15,7 +15,7 @@ export default function HomePage() {
         const dashboardRoutes: Record<string, string> = {
           super_admin: "/dashboard/admin",
           admin: "/dashboard/admin",
-          receptionist: "/dashboard/receptionist",
+          receptionist: "/dashboard/candidates",
           process_agent: "/dashboard/agent",
           accountant: "/dashboard/accounts",
         }

@@ -28,12 +28,12 @@ import {
   Edit3,
 } from "lucide-react"
 import { useAuth } from "@/components/auth-provider"
+import { useCompany } from "@/components/company-provider"
 
 export default function AgentCandidatePoolPage() {
   const { toast } = useToast()
   const { user } = useAuth()
-  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([])
-  const [companyId, setCompanyId] = useState("")
+  const { companies, selectedCompanyId: companyId, setSelectedCompanyId: setCompanyId } = useCompany()
   const [rows, setRows] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState("")
@@ -54,33 +54,11 @@ export default function AgentCandidatePoolPage() {
   }, [])
 
   useEffect(() => {
-    ;(async () => {
-      try {
-        const token = getValidToken()
-        const res = await fetch(`/api/companies`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-          credentials: "include",
-        })
-        const data = await res.json()
-        if (data.success) {
-          setCompanies(data.data || [])
-          if (typeof window !== "undefined") {
-            const stored = localStorage.getItem("selectedCompanyId") || ""
-            if (stored && data.data?.some((c: any) => c.id === stored)) {
-              setCompanyId(stored)
-            } else if (!companyId && data.data?.length) setCompanyId(data.data[0].id)
-          }
-        }
-      } catch {}
-    })()
-  }, [])
-
-  useEffect(() => {
     if (!companyId) {
       setRows([])
       return
     }
-    ;(async () => {
+    ; (async () => {
       try {
         setLoading(true)
         const token = getValidToken()
@@ -292,9 +270,9 @@ export default function AgentCandidatePoolPage() {
                         toast({ title: "Select company" })
                         return
                       }
-                    try {
-                      setLoadingCandidates(true)
-                      const token = getValidToken()
+                      try {
+                        setLoadingCandidates(true)
+                        const token = getValidToken()
                         const params = new URLSearchParams({
                           job,
                           q,
@@ -307,8 +285,8 @@ export default function AgentCandidatePoolPage() {
                           headers: token ? { Authorization: `Bearer ${token}` } : {},
                           credentials: "include",
                         })
-                      const data = await res.json()
-                      if (data.success) setCandidates(data.data || [])
+                        const data = await res.json()
+                        if (data.success) setCandidates(data.data || [])
                       } catch {
                       } finally {
                         setLoadingCandidates(false)
@@ -422,7 +400,7 @@ export default function AgentCandidatePoolPage() {
                             <TableCell className="font-medium text-gray-900">{c.full_name}</TableCell>
                             <TableCell className="text-gray-600 font-mono text-sm">{c.passport_no}</TableCell>
                             <TableCell className="text-gray-600">{c.post_applied_for}</TableCell>
-                          <TableCell>
+                            <TableCell>
                               {c.workflow_id ? (
                                 <Badge className="bg-blue-50 text-blue-700 border border-blue-200">In Workflow</Badge>
                               ) : c.eng_agent_id ? (
@@ -430,7 +408,7 @@ export default function AgentCandidatePoolPage() {
                               ) : (
                                 <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">Unselected</Badge>
                               )}
-                          </TableCell>
+                            </TableCell>
                             <TableCell className="text-right">
                               {c.workflow_id ? (
                                 <Button size="sm" variant="outline" disabled className="h-8 px-3 opacity-70">
@@ -446,11 +424,11 @@ export default function AgentCandidatePoolPage() {
                                   className="bg-blue-600 hover:bg-blue-700 text-white h-8 px-3"
                                 >
                                   {busy ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-                              Select
-                            </Button>
+                                  Select
+                                </Button>
                               )}
-                          </TableCell>
-                        </TableRow>
+                            </TableCell>
+                          </TableRow>
                         ))
                       )}
                     </TableBody>
@@ -485,8 +463,8 @@ export default function AgentCandidatePoolPage() {
           </CardHeader>
           <CardContent>
             <div className="rounded-lg border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <Table>
+              <div className="overflow-x-auto">
+                <Table>
                   <TableHeader className="bg-gray-50">
                     <TableRow className="border-b border-gray-200">
                       <TableHead className="font-semibold text-gray-900 min-w-[150px]">Candidate</TableHead>
@@ -495,10 +473,10 @@ export default function AgentCandidatePoolPage() {
                       <TableHead className="font-semibold text-gray-900 min-w-[160px]">Interview Status</TableHead>
                       <TableHead className="font-semibold text-gray-900 min-w-[140px]">Result</TableHead>
                       <TableHead className="font-semibold text-gray-900 min-w-[180px] text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
                       <TableRow>
                         <TableCell colSpan={6} className="text-center py-12">
                           <div className="flex items-center justify-center gap-2 text-muted-foreground">
@@ -595,9 +573,9 @@ export default function AgentCandidatePoolPage() {
                               </div>
                             )}
                           </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {statusBadge(r.interview_status || "pending")}
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {statusBadge(r.interview_status || "pending")}
                               <Select
                                 value={r.interview_status || "pending"}
                                 onValueChange={async (v) => {
@@ -607,7 +585,7 @@ export default function AgentCandidatePoolPage() {
                                     credentials: "include",
                                     body: JSON.stringify({ interview_status: v }),
                                   })
-                          if (res.ok) {
+                                  if (res.ok) {
                                     const token2 = getValidToken()
                                     const rr = await fetch(`/api/engagements?${qs}&company_id=${companyId}`, {
                                       headers: token2 ? { Authorization: `Bearer ${token2}` } : {},
@@ -621,7 +599,7 @@ export default function AgentCandidatePoolPage() {
                                 <SelectTrigger className="w-32 h-8 text-xs border-gray-200">
                                   <SelectValue />
                                 </SelectTrigger>
-                            <SelectContent>
+                                <SelectContent>
                                   <SelectItem value="pending">
                                     <div className="flex items-center gap-2">
                                       <Clock className="h-3 w-3" /> Pending
@@ -642,12 +620,12 @@ export default function AgentCandidatePoolPage() {
                                       <XCircle className="h-3 w-3" /> Cancelled
                                     </div>
                                   </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
                               {r.interview_result ? (
                                 statusBadge(r.interview_result)
                               ) : (
@@ -662,7 +640,7 @@ export default function AgentCandidatePoolPage() {
                                     credentials: "include",
                                     body: JSON.stringify({ interview_result: v }),
                                   })
-                          if (res.ok) {
+                                  if (res.ok) {
                                     const token2 = getValidToken()
                                     const rr = await fetch(`/api/engagements?${qs}&company_id=${companyId}`, {
                                       headers: token2 ? { Authorization: `Bearer ${token2}` } : {},
@@ -676,7 +654,7 @@ export default function AgentCandidatePoolPage() {
                                 <SelectTrigger className="w-32 h-8 text-xs border-gray-200">
                                   <SelectValue />
                                 </SelectTrigger>
-                            <SelectContent>
+                                <SelectContent>
                                   <SelectItem value="pending">
                                     <div className="flex items-center gap-2">
                                       <Clock className="h-3 w-3" /> Pending
@@ -692,13 +670,13 @@ export default function AgentCandidatePoolPage() {
                                       <XCircle className="h-3 w-3" /> Rejected
                                     </div>
                                   </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TableCell>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-2">
-                        {r.workflow_id ? (
+                              {r.workflow_id ? (
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -707,12 +685,12 @@ export default function AgentCandidatePoolPage() {
                                 >
                                   <Eye className="h-3 w-3 mr-1" />
                                   View Workflow
-                          </Button>
-                        ) : (
-                          (() => {
-                            const disabledReason = startDisabledReason(r)
-                            const disabled = !!disabledReason || startingId === (r.candidate_id || r.id)
-                            const content = (
+                                </Button>
+                              ) : (
+                                (() => {
+                                  const disabledReason = startDisabledReason(r)
+                                  const disabled = !!disabledReason || startingId === (r.candidate_id || r.id)
+                                  const content = (
                                     <Button
                                       size="sm"
                                       className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -730,20 +708,20 @@ export default function AgentCandidatePoolPage() {
                                           Start
                                         </>
                                       )}
-                              </Button>
-                            )
-                            return disabledReason ? (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>{content}</TooltipTrigger>
-                                  <TooltipContent>{disabledReason}</TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
+                                    </Button>
+                                  )
+                                  return disabledReason ? (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>{content}</TooltipTrigger>
+                                        <TooltipContent>{disabledReason}</TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
                                   ) : (
                                     content
                                   )
-                          })()
-                        )}
+                                })()
+                              )}
                               <Button
                                 size="icon"
                                 variant="ghost"
@@ -776,12 +754,12 @@ export default function AgentCandidatePoolPage() {
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
-                      </TableCell>
-                    </TableRow>
+                          </TableCell>
+                        </TableRow>
                       ))
                     )}
-                </TableBody>
-              </Table>
+                  </TableBody>
+                </Table>
               </div>
             </div>
           </CardContent>
