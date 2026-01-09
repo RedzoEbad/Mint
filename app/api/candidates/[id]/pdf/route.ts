@@ -12,8 +12,26 @@ let browserPromise: Promise<any> | null = null
 async function getBrowser() {
   if (!browserPromise) {
     browserPromise = (async () => {
-      const puppeteer = await import("puppeteer")
-      return puppeteer.launch({ args: ["--no-sandbox", "--disable-setuid-sandbox"], headless: "new" as any })
+      if (process.env.VERCEL || process.env.NODE_ENV === "production") {
+        const chromium = await import("@sparticuz/chromium").then((m) => m.default)
+        const puppeteer = await import("puppeteer-core")
+
+        // Configuration for Vercel
+        return puppeteer.launch({
+          args: chromium.args,
+          defaultViewport: chromium.defaultViewport,
+          executablePath: await chromium.executablePath(),
+          headless: chromium.headless,
+          ignoreHTTPSErrors: true,
+        })
+      } else {
+        // Configuration for local development
+        const puppeteer = await import("puppeteer")
+        return puppeteer.launch({
+          args: ["--no-sandbox", "--disable-setuid-sandbox"],
+          headless: "new" as any
+        })
+      }
     })()
   }
   return browserPromise
