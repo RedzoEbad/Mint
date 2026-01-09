@@ -13,16 +13,14 @@ async function getBrowser() {
   if (!browserPromise) {
     browserPromise = (async () => {
       if (process.env.VERCEL || process.env.NODE_ENV === "production") {
-        const chromium = await import("@sparticuz/chromium").then((m) => m.default)
+        const chromium = await import("@sparticuz/chromium").then((m) => m.default) as any
         const puppeteer = await import("puppeteer-core")
 
         // Configuration for Vercel
         return puppeteer.launch({
           args: chromium.args,
-          defaultViewport: chromium.defaultViewport,
           executablePath: await chromium.executablePath(),
           headless: chromium.headless,
-          ignoreHTTPSErrors: true,
         })
       } else {
         // Configuration for local development
@@ -44,6 +42,9 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     logger.warn("PDF: missing candidate id", ctx)
     return NextResponse.json({ error: "Missing candidate id" }, { status: 400 })
   }
+
+  const { searchParams } = new URL(request.url)
+  const type = searchParams.get("type") || "own" // "client" or "own"
 
   try {
     // Authenticate using NextAuth
@@ -96,6 +97,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
         : `${origin}${c.profile_image.startsWith("/") ? c.profile_image : `/${c.profile_image}`}`)
       : ""
 
+    const isClient = type === "client"
+
     const printableHtml = `<!doctype html>
       <html>
       <head>
@@ -127,7 +130,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
           <div class="header">
             <img src="${logoUrl}" alt="MINT International" class="logo" />
           </div>
-          <div class="form-title">FORM-A</div>
+          <div class="form-title">FORM-A ${isClient ? "(CLIENT COPY)" : ""}</div>
+          
           <div class="section">
             <div class="profile-section">
               <div class="profile-fields">
@@ -139,6 +143,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
               ${profileImageUrl ? `<img src="${profileImageUrl}" alt="Profile" class="profile-image" />` : '<div class="profile-image" style="background: #f3f4f6; display: flex; align-items: center; justify-content: center; color: #6b7280;">No Photo</div>'}
             </div>
           </div>
+
+          ${isClient ? "" : `
           <div class="section">
             <div class="grid-2">
               <div class="field-row"><span class="field-label">Marital Status:</span><div class="field-value">${c.marital_status || ""}</div></div>
@@ -152,14 +158,20 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
           <div class="section">
             <div class="field-row"><span class="field-label">Passport No:</span><div class="field-value" style="font-family: monospace;">${c.passport_no || ""}</div></div>
           </div>
+          `}
+
           <div class="section">
             <div class="field-row"><span class="field-label">Academic Qualifications:</span><div class="field-value">${c.academic_qualifications || ""}</div></div>
             <div class="field-row"><span class="field-label">Technical Qualifications:</span><div class="field-value">${c.technical_qualifications || ""}</div></div>
             <div class="field-row"><span class="field-label">Languages Known:</span><div class="field-value">${Array.isArray(c.languages_known) ? c.languages_known.join(", ") : ""}</div></div>
           </div>
+
+          ${isClient ? "" : `
           <div class="form-title">EXPERIENCE TOTAL (YEARS)</div>
           <div class="section"><div class="field-value" style="text-align: center; font-size: 14px; font-weight: 600; background:#fff;">${c.experience_total || ""}</div></div>
           <div class="section"><div class="field-row"><span class="field-label">Remarks:</span><div class="field-value">${c.remarks || ""}</div></div></div>
+          `}
+
           <div class="footer">
             <div class="field-row" style="margin-bottom: 0;"><span class="field-label">Date:</span><div class="field-value" style="width: 150px;">${c.created_at ? new Date(c.created_at).toLocaleDateString() : ""}</div></div>
             <div class="field-row" style="margin-bottom: 0;"><span class="field-label">Client Signature:</span><div class="field-value" style="width: 200px;"></div></div>
@@ -201,7 +213,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     return new NextResponse(pdfBuffer, {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename=candidate-${candidateId}.pdf`,
+        "Content-Disposition": `attachment; filename=candidate-${type}-${candidateId}.pdf`,
         "Cache-Control": "no-store",
       },
     })

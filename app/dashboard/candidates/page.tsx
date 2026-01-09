@@ -27,6 +27,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 interface Candidate {
   id: string
@@ -134,15 +140,15 @@ export default function CandidatesPage() {
     }
   }
 
-  async function downloadCandidatePdf(candidateId: string) {
+  async function downloadCandidatePdf(candidateId: string, type: "client" | "own" = "own") {
     try {
-      const res = await fetch(`/api/candidates/${candidateId}/pdf`)
+      const res = await fetch(`/api/candidates/${candidateId}/pdf?type=${type}`)
       if (!res.ok) throw new Error("Failed to generate PDF")
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `candidate-${candidateId}.pdf`
+      a.download = `candidate-${type}-${candidateId}.pdf`
       document.body.appendChild(a)
       a.click()
       a.remove()
@@ -361,14 +367,25 @@ export default function CandidatesPage() {
                               <Edit className="h-4 w-4" />
                             </Link>
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => downloadCandidatePdf(c.id)}
-                            className="h-9 w-9 p-0 hover:bg-emerald-100 hover:text-emerald-700 transition-all duration-200"
-                          >
-                            <FileDown className="h-4 w-4" />
-                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-9 w-9 p-0 hover:bg-emerald-100 hover:text-emerald-700 transition-all duration-200"
+                              >
+                                <FileDown className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="glass-card">
+                              <DropdownMenuItem onClick={() => downloadCandidatePdf(c.id, "client")} className="cursor-pointer">
+                                Download Client PDF
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => downloadCandidatePdf(c.id, "own")} className="cursor-pointer">
+                                Download Own PDF (Full)
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                           {(user?.role === "super_admin" || user?.role === "receptionist") && (
                             <AlertDialog>
                               <AlertDialogTrigger asChild>

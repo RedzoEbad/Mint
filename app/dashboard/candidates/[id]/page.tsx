@@ -10,6 +10,12 @@ import { getValidToken } from "@/lib/token-utils"
 import { FileDown, Edit, ArrowLeft } from "lucide-react"
 import { format } from "date-fns"
 import { PageLoader } from "@/components/ui/page-loader"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 export default function CandidateDetailsPage() {
   const { id } = useParams<{ id: string }>()
@@ -19,26 +25,26 @@ export default function CandidateDetailsPage() {
 
   useEffect(() => {
     if (!id) return
-    ;(async () => {
-      try {
-        const token = getValidToken()
-        const res = await fetch(`/api/candidates/${id}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        })
-        const json = await res.json()
-        if (json.success) setCandidate(json.data)
-      } catch (e) {
-        console.error("Load candidate error", e)
-      } finally {
-        setLoading(false)
-      }
-    })()
+      ; (async () => {
+        try {
+          const token = getValidToken()
+          const res = await fetch(`/api/candidates/${id}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          })
+          const json = await res.json()
+          if (json.success) setCandidate(json.data)
+        } catch (e) {
+          console.error("Load candidate error", e)
+        } finally {
+          setLoading(false)
+        }
+      })()
   }, [id])
 
-  async function downloadPdf() {
+  async function downloadPdf(type: "client" | "own" = "own") {
     try {
       const token = getValidToken()
-      const res = await fetch(`/api/candidates/${id}/pdf`, {
+      const res = await fetch(`/api/candidates/${id}/pdf?type=${type}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
       if (!res.ok) throw new Error("Failed to generate PDF")
@@ -46,7 +52,7 @@ export default function CandidateDetailsPage() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `candidate-form-${candidate?.id || id}.pdf`
+      a.download = `candidate-${type}-${candidate?.id || id}.pdf`
       document.body.appendChild(a)
       a.click()
       a.remove()
@@ -60,11 +66,23 @@ export default function CandidateDetailsPage() {
     <DashboardLayout title="Candidate Details">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <Button variant="outline" onClick={() => router.push("/dashboard/candidates")}> 
+          <Button variant="outline" onClick={() => router.push("/dashboard/candidates")}>
             <ArrowLeft className="h-4 w-4 mr-2" /> Back
           </Button>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={downloadPdf}><FileDown className="h-4 w-4 mr-2" /> PDF</Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline"><FileDown className="h-4 w-4 mr-2" /> PDF</Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="glass-card">
+                <DropdownMenuItem onClick={() => downloadPdf("client")} className="cursor-pointer">
+                  Download Client PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => downloadPdf("own")} className="cursor-pointer">
+                  Download Own PDF (Full)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button asChild>
               <Link href={`/dashboard/candidates/${id}/edit`}><Edit className="h-4 w-4 mr-2" /> Edit</Link>
             </Button>
@@ -93,7 +111,7 @@ export default function CandidateDetailsPage() {
               {/* Date formatter */}
               {/**/}
               {/**/}
-              
+
               {/* Personal Information */}
               <Card>
                 <CardHeader>
