@@ -10,6 +10,7 @@ import { getValidToken } from "@/lib/token-utils"
 import { FileDown, Edit, ArrowLeft, FileSpreadsheet } from "lucide-react"
 import { format } from "date-fns"
 import { PageLoader } from "@/components/ui/page-loader"
+import { SecureFileLink, SecureImage } from "@/components/secure-file"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -153,7 +154,7 @@ export default function CandidateDetailsPage() {
                   {candidate.profile_image ? (
                     <div className="md:col-span-2">
                       <div className="text-xs text-gray-500 mb-2">Profile image</div>
-                      <img src={candidate.profile_image} alt="Profile" className="w-32 h-40 object-cover rounded-lg border" />
+                      <SecureImage src={candidate.profile_image} alt="Profile" className="w-32 h-40 object-cover rounded-lg border" />
                     </div>
                   ) : null}
                 </CardContent>
@@ -282,11 +283,7 @@ function DocLink({ label, url }: { label: string; url?: string }) {
   return (
     <div className="space-y-1">
       <div className="text-xs text-gray-500">{label}</div>
-      {url ? (
-        <a href={url} target="_blank" rel="noreferrer" className="text-sm text-blue-600 underline">View document</a>
-      ) : (
-        <div className="text-sm text-gray-400">-</div>
-      )}
+      <SecureFileLink url={url} label="View document" />
     </div>
   )
 }

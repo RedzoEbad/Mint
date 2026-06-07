@@ -27,6 +27,7 @@ import { useToast } from "@/hooks/use-toast"
 import { computeExperienceTotal, sanitizeExperienceInput } from "@/lib/candidate-experience"
 import { validateCandidateForm, validateDocOrImageFile } from "@/lib/candidate-form-validation"
 import { DocUploadField } from "@/components/candidate-doc-upload"
+import { normalizeStoredFileUrl } from "@/lib/uploads"
 
 export default function EditCandidatePage() {
   const { id } = useParams<{ id: string }>()
@@ -99,10 +100,7 @@ export default function EditCandidatePage() {
             })
             setLanguages(Array.isArray(c.languages_known) ? c.languages_known : [])
             if (c.profile_image) {
-              const url = typeof c.profile_image === 'string' && !c.profile_image.startsWith('http') && !c.profile_image.startsWith('/')
-                ? `/${c.profile_image}`
-                : c.profile_image
-              setProfileImagePreview(url)
+              setProfileImagePreview(normalizeStoredFileUrl(c.profile_image) || "")
             }
             if (c.cv_file) setCvFileName(c.cv_file.split("/").pop())
             if (Array.isArray(c.technical_qualification_details)) {

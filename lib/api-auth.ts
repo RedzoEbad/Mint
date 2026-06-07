@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getToken } from "next-auth/jwt"
+import { getAuthToken } from "@/lib/get-auth-token"
 
 export async function requireAuth(
   request: NextRequest,
@@ -9,10 +9,7 @@ export async function requireAuth(
   | { ok: false; response: NextResponse }
 > {
   // Get token using NextAuth
-  const token = await getToken({ 
-    req: request, 
-    secret: process.env.NEXTAUTH_SECRET || "mint-international-secret-key-2024" 
-  })
+  const token = await getAuthToken(request)
 
   if (!token) {
     return { ok: false, response: NextResponse.json({ success: false, message: "No authentication token provided" }, { status: 401 }) }

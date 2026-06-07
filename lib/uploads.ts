@@ -133,9 +133,22 @@ export async function readStoredFile(
   }
 }
 
+/** Normalize DB/file paths for browser and API use. */
+export function normalizeStoredFileUrl(fileUrl?: string | null): string | null {
+  if (!fileUrl || typeof fileUrl !== "string") return null
+  const trimmed = fileUrl.trim()
+  if (!trimmed) return null
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed
+  if (trimmed.startsWith("/api/files/") || trimmed.startsWith("/uploads/")) return trimmed
+  if (trimmed.startsWith("/")) return trimmed
+  if (trimmed.includes("/")) return `/api/files/${trimmed}`
+  return null
+}
+
 export function toAbsoluteFileUrl(origin: string, fileUrl?: string | null): string | null {
-  if (!fileUrl) return null
-  if (fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) return fileUrl
-  if (fileUrl.startsWith("/")) return `${origin}${fileUrl}`
-  return `${origin}/${fileUrl}`
+  const normalized = normalizeStoredFileUrl(fileUrl)
+  if (!normalized) return null
+  if (normalized.startsWith("http://") || normalized.startsWith("https://")) return normalized
+  if (normalized.startsWith("/")) return `${origin}${normalized}`
+  return `${origin}/${normalized}`
 }
