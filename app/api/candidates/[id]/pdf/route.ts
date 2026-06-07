@@ -137,7 +137,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
               <div class="profile-fields">
                 <div class="field-row"><span class="field-label">Post Applied For:</span><div class="field-value">${c.post_applied_for || ""}</div></div>
                 <div class="field-row"><span class="field-label">Referred By:</span><div class="field-value">${c.referred_by || ""}</div></div>
-                <div class="field-row"><span class="field-label">Full Name:</span><div class="field-value">${c.full_name || ""}</div></div>
+                <div class="field-row"><span class="field-label">Given Names:</span><div class="field-value">${c.full_name || ""}</div></div>
+                <div class="field-row"><span class="field-label">Surname:</span><div class="field-value">${c.surname || ""}</div></div>
                 <div class="field-row"><span class="field-label">Father Name:</span><div class="field-value">${c.father_name || ""}</div></div>
               </div>
               ${profileImageUrl ? `<img src="${profileImageUrl}" alt="Profile" class="profile-image" />` : '<div class="profile-image" style="background: #f3f4f6; display: flex; align-items: center; justify-content: center; color: #6b7280;">No Photo</div>'}
@@ -149,6 +150,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
             <div class="grid-2">
               <div class="field-row"><span class="field-label">Marital Status:</span><div class="field-value">${c.marital_status || ""}</div></div>
               <div class="field-row"><span class="field-label">Religion:</span><div class="field-value">${c.religion || ""}</div></div>
+              <div class="field-row"><span class="field-label">Sex:</span><div class="field-value">${c.sex || ""}</div></div>
+              <div class="field-row"><span class="field-label">Citizenship No:</span><div class="field-value">${c.citizenship_no || ""}</div></div>
               <div class="field-row"><span class="field-label">Date of Birth:</span><div class="field-value">${c.date_of_birth ? new Date(c.date_of_birth).toLocaleDateString() : ""}</div></div>
               <div class="field-row"><span class="field-label">Place of Issue:</span><div class="field-value">${c.place_of_issue || ""}</div></div>
               <div class="field-row"><span class="field-label">Date of issue:</span><div class="field-value">${c.date_of_issue ? new Date(c.date_of_issue).toLocaleDateString() : ""}</div></div>
@@ -161,14 +164,29 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
           `}
 
           <div class="section">
-            <div class="field-row"><span class="field-label">Academic Qualifications:</span><div class="field-value">${c.academic_qualifications || ""}</div></div>
-            <div class="field-row"><span class="field-label">Technical Qualifications:</span><div class="field-value">${c.technical_qualifications || ""}</div></div>
+            <div class="field-row"><span class="field-label">Primary School:</span><div class="field-value">${c.primary_school || ""}</div></div>
+            <div class="field-row"><span class="field-label">Secondary School:</span><div class="field-value">${c.secondary_school || ""}</div></div>
+            <div class="field-row"><span class="field-label">Higher Education:</span><div class="field-value">${c.higher_education || ""}</div></div>
+            <div class="field-row"><span class="field-label">Diploma:</span><div class="field-value">${c.diploma || ""}</div></div>
             <div class="field-row"><span class="field-label">Languages Known:</span><div class="field-value">${Array.isArray(c.languages_known) ? c.languages_known.join(", ") : ""}</div></div>
+            ${Array.isArray(c.technical_qualification_details) && c.technical_qualification_details.length > 0 ? `
+            <div class="field-row" style="align-items: flex-start;"><span class="field-label">Technical Qualifications:</span>
+              <div class="field-value" style="background:#fff;">
+                ${c.technical_qualification_details.map((tq: any) => `<div style="margin-bottom:6px;">${tq.qualification_name || ""}${tq.institution ? ` — ${tq.institution}` : ""}${tq.year ? ` (${tq.year})` : ""}</div>`).join("")}
+              </div>
+            </div>` : ""}
           </div>
 
           ${isClient ? "" : `
-          <div class="form-title">EXPERIENCE TOTAL (YEARS)</div>
-          <div class="section"><div class="field-value" style="text-align: center; font-size: 14px; font-weight: 600; background:#fff;">${c.experience_total || ""}</div></div>
+          <div class="form-title">EXPERIENCE (YEARS)</div>
+          <div class="section">
+            <div class="grid-2">
+              <div class="field-row"><span class="field-label">GCC Experience:</span><div class="field-value">${c.gcc_experience || ""}</div></div>
+              <div class="field-row"><span class="field-label">KSA Experience:</span><div class="field-value">${c.ksa_experience || ""}</div></div>
+              <div class="field-row"><span class="field-label">Local Experience:</span><div class="field-value">${c.local_experience || ""}</div></div>
+              <div class="field-row"><span class="field-label">Total Experience:</span><div class="field-value" style="font-weight: 600;">${c.experience_total || ""}</div></div>
+            </div>
+          </div>
           <div class="section"><div class="field-row"><span class="field-label">Remarks:</span><div class="field-value">${c.remarks || ""}</div></div></div>
           `}
 

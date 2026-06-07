@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,8 +11,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { format } from "date-fns"
-import { Loader2, CalendarIcon, Plus, X, Upload, Image as ImageIcon, Info, FileDown } from "lucide-react"
+import { Loader2, CalendarIcon, Plus, X, Upload, Info, FileDown, GraduationCap } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { computeExperienceTotal, sanitizeExperienceInput } from "@/lib/candidate-experience"
+import { validateCandidateForm, validateDocOrImageFile } from "@/lib/candidate-form-validation"
+import { DocUploadField, ReqLabel } from "@/components/candidate-doc-upload"
+import { ProfilePortraitUpload } from "@/components/profile-portrait-upload"
+import { ClientOnly } from "@/components/client-only"
+
+type TechnicalQualEntry = {
+  qualification_name: string
+  institution: string
+  year: string
+  certificateFile: File | null
+  certificateFileName: string
+}
 
 export default function AddCandidatePage() {
   const router = useRouter()
@@ -23,17 +36,24 @@ export default function AddCandidatePage() {
 
   const [form, setForm] = useState({
     full_name: "",
+    surname: "",
     father_name: "",
     date_of_birth: undefined as Date | undefined,
     marital_status: "",
     religion: "",
+    sex: "",
+    citizenship_no: "",
     passport_no: "",
     date_of_issue: undefined as Date | undefined,
     date_of_expiry: undefined as Date | undefined,
     place_of_issue: "",
-    academic_qualifications: "",
-    technical_qualifications: "",
-    experience_total: "",
+    primary_school: "",
+    secondary_school: "",
+    higher_education: "",
+    diploma: "",
+    gcc_experience: "",
+    ksa_experience: "",
+    local_experience: "",
     post_applied_for: "",
     referred_by: "",
     profile_image: "",
@@ -45,6 +65,26 @@ export default function AddCandidatePage() {
   const [cvFile, setCvFile] = useState<File | null>(null)
   const [profileImagePreview, setProfileImagePreview] = useState<string>("")
   const [cvFileName, setCvFileName] = useState<string>("")
+  const [cnicFrontFile, setCnicFrontFile] = useState<File | null>(null)
+  const [cnicFrontName, setCnicFrontName] = useState("")
+  const [cnicBackFile, setCnicBackFile] = useState<File | null>(null)
+  const [cnicBackName, setCnicBackName] = useState("")
+  const [matricCertFile, setMatricCertFile] = useState<File | null>(null)
+  const [matricCertName, setMatricCertName] = useState("")
+  const [intermediateCertFile, setIntermediateCertFile] = useState<File | null>(null)
+  const [intermediateCertName, setIntermediateCertName] = useState("")
+  const [diplomaCertFile, setDiplomaCertFile] = useState<File | null>(null)
+  const [diplomaCertName, setDiplomaCertName] = useState("")
+  const [experienceLetterFile, setExperienceLetterFile] = useState<File | null>(null)
+  const [experienceLetterName, setExperienceLetterName] = useState("")
+  const [technicalQuals, setTechnicalQuals] = useState<TechnicalQualEntry[]>([
+    { qualification_name: "", institution: "", year: "", certificateFile: null, certificateFileName: "" },
+  ])
+
+  const experienceTotal = useMemo(
+    () => computeExperienceTotal(form.gcc_experience, form.ksa_experience, form.local_experience),
+    [form.gcc_experience, form.ksa_experience, form.local_experience],
+  )
 
   function setField<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -58,6 +98,45 @@ export default function AddCandidatePage() {
 
   function removeLanguage(lang: string) {
     setLanguages((l) => l.filter((x) => x !== lang))
+  }
+
+  function addTechnicalQual() {
+    setTechnicalQuals((prev) => [...prev, { qualification_name: "", institution: "", year: "", certificateFile: null, certificateFileName: "" }])
+  }
+
+  function updateTechnicalQual(index: number, field: keyof TechnicalQualEntry, value: string | File | null) {
+    setTechnicalQuals((prev) => prev.map((tq, i) => (i === index ? { ...tq, [field]: value } : tq)))
+  }
+
+  function removeTechnicalQual(index: number) {
+    setTechnicalQuals((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  function handleDocFileChange(
+    e: React.ChangeEvent<HTMLInputElement>,
+    setFile: (f: File | null) => void,
+    setName: (n: string) => void,
+  ) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const err = validateDocOrImageFile(file)
+    if (err) {
+      toast({ title: "Invalid file", description: err, variant: "destructive" })
+      return
+    }
+    setFile(file)
+    setName(file.name)
+  }
+
+  function handleTechQualCertChange(index: number, e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const err = validateDocOrImageFile(file)
+    if (err) {
+      toast({ title: "Invalid file", description: err, variant: "destructive" })
+      return
+    }
+    setTechnicalQuals((prev) => prev.map((tq, i) => i === index ? { ...tq, certificateFile: file, certificateFileName: file.name } : tq))
   }
 
   const handleProfileImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -126,6 +205,33 @@ export default function AddCandidatePage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+
+    const validation = validateCandidateForm(
+      form,
+      languages,
+      technicalQuals.map((tq) => ({
+        qualification_name: tq.qualification_name,
+        institution: tq.institution,
+        year: tq.year,
+        hasCertificate: Boolean(tq.certificateFile),
+      })),
+      {
+        profileImage: Boolean(profileImageFile),
+        cnicFront: Boolean(cnicFrontFile),
+        cnicBack: Boolean(cnicBackFile),
+        matricCertificate: Boolean(matricCertFile),
+        intermediateCertificate: Boolean(intermediateCertFile),
+        diplomaCertificate: Boolean(diplomaCertFile),
+        experienceLetter: Boolean(experienceLetterFile),
+        cv: Boolean(cvFile),
+      },
+    )
+
+    if (!validation.valid) {
+      toast({ title: "Incomplete form", description: validation.message, variant: "destructive" })
+      return
+    }
+
     setSubmitting(true)
     try {
       // Create FormData for file uploads
@@ -143,13 +249,22 @@ export default function AddCandidatePage() {
       // Add languages array
       formData.append("languages_known", JSON.stringify(languages))
 
-      // Add files if they exist
-      if (profileImageFile) {
-        formData.append("profile_image_file", profileImageFile)
-      }
-      if (cvFile) {
-        formData.append("cv_file", cvFile)
-      }
+      // Technical qualifications metadata
+      const filteredTechQuals = technicalQuals.filter((tq) => tq.qualification_name.trim())
+      const techQualMeta = filteredTechQuals.map(({ qualification_name, institution, year }) => ({ qualification_name, institution, year }))
+      formData.append("technical_qualification_details", JSON.stringify(techQualMeta))
+      filteredTechQuals.forEach((tq, i) => {
+        if (tq.certificateFile) formData.append(`technical_qual_cert_${i}`, tq.certificateFile)
+      })
+
+      if (profileImageFile) formData.append("profile_image_file", profileImageFile)
+      if (cnicFrontFile) formData.append("cnic_front_file", cnicFrontFile)
+      if (cnicBackFile) formData.append("cnic_back_file", cnicBackFile)
+      if (matricCertFile) formData.append("matric_certificate_file", matricCertFile)
+      if (intermediateCertFile) formData.append("intermediate_certificate_file", intermediateCertFile)
+      if (diplomaCertFile) formData.append("diploma_certificate_file", diplomaCertFile)
+      if (experienceLetterFile) formData.append("experience_letter_file", experienceLetterFile)
+      if (cvFile) formData.append("cv_file", cvFile)
 
       const res = await fetch("/api/candidates", {
         method: "POST",
@@ -189,43 +304,15 @@ export default function AddCandidatePage() {
 
   return (
     <DashboardLayout title="Add Candidate">
-      <style jsx global>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes slideIn {
-          from { opacity: 0; transform: translateX(-10px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-        .animate-fade-in {
-          animation: fadeIn 0.5s ease-out forwards;
-        }
-        .animate-slide-in {
-          animation: slideIn 0.4s ease-out forwards;
-        }
-        .glass-card {
-          background: rgba(255, 255, 255, 0.95);
-          backdrop-filter: blur(10px);
-          border: 1px solid rgba(226, 232, 240, 0.8);
-        }
-        .input-field {
-          transition: all 0.2s ease;
-        }
-        .input-field:focus {
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
-        }
-      `}</style>
-
       <form
         id="candidate-form-container"
         onSubmit={handleSubmit}
-        className="space-y-6 animate-fade-in"
+        className="space-y-6 candidate-fade-in"
         data-testid="candidate-form"
+        suppressHydrationWarning
       >
         {/* Header Section */}
-        <div className="glass-card rounded-2xl p-6 shadow-lg border">
+        <div className="candidate-glass-card rounded-2xl p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
@@ -240,40 +327,55 @@ export default function AddCandidatePage() {
             </div>
             <div className="text-right">
               <div className="text-sm font-semibold text-slate-900">New Registration</div>
-              <div className="text-xs text-slate-500">{new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+              <ClientOnly fallback={<div className="text-xs text-slate-500">—</div>}>
+                <div className="text-xs text-slate-500" suppressHydrationWarning>
+                  {format(new Date(), "MMMM d, yyyy")}
+                </div>
+              </ClientOnly>
             </div>
           </div>
         </div>
 
         {/* Personal Information */}
-        <Card className="glass-card shadow-lg border-0 overflow-hidden animate-slide-in" style={{ animationDelay: '0.1s' }}>
+        <Card className="candidate-glass-card border-0 overflow-hidden candidate-slide-in shadow-lg">
           <CardHeader className="bg-gradient-to-r from-slate-50 to-blue-50/30 border-b border-slate-100">
             <CardTitle className="text-lg font-bold text-slate-900">Personal Information</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-5 md:grid-cols-2 pt-6">
             <div className="space-y-2">
-              <Label className="text-sm font-semibold text-slate-700">Full Name</Label>
+              <ReqLabel>Given Names</ReqLabel>
               <Input
                 data-testid="full_name"
-                placeholder="Enter full name"
+                placeholder="Enter given names (as on passport)"
                 value={form.full_name}
                 onChange={(e) => setField("full_name", e.target.value)}
-                className="input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-sm font-semibold text-slate-700">Father's Name</Label>
+              <ReqLabel>Surname</ReqLabel>
+              <Input
+                data-testid="surname"
+                placeholder="Enter surname (as on passport)"
+                value={form.surname}
+                onChange={(e) => setField("surname", e.target.value)}
+                className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <ReqLabel>Father Name</ReqLabel>
               <Input
                 data-testid="father_name"
                 placeholder="Enter father's name"
                 value={form.father_name}
                 onChange={(e) => setField("father_name", e.target.value)}
-                className="input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
               />
             </div>
 
             <div className="space-y-2">
-              <Label className="text-sm font-semibold text-slate-700">Marital Status</Label>
+              <ReqLabel>Marital Status</ReqLabel>
               <Select value={form.marital_status} onValueChange={(v) => setField("marital_status", v)}>
                 <SelectTrigger className="h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
                   <SelectValue placeholder="Select marital status" />
@@ -288,18 +390,42 @@ export default function AddCandidatePage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-sm font-semibold text-slate-700">Religion</Label>
+              <ReqLabel>Religion</ReqLabel>
               <Input
                 data-testid="religion"
                 placeholder="Enter religion"
                 value={form.religion}
                 onChange={(e) => setField("religion", e.target.value)}
-                className="input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
               />
             </div>
 
             <div className="space-y-2">
-              <Label className="text-sm font-semibold text-slate-700">Date of Birth</Label>
+              <ReqLabel>Sex</ReqLabel>
+              <Select value={form.sex} onValueChange={(v) => setField("sex", v)}>
+                <SelectTrigger className="h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
+                  <SelectValue placeholder="Select sex" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="M">M (Male)</SelectItem>
+                  <SelectItem value="F">F (Female)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <ReqLabel>Citizenship Number</ReqLabel>
+              <Input
+                data-testid="citizenship_no"
+                placeholder="Enter citizenship number"
+                value={form.citizenship_no}
+                onChange={(e) => setField("citizenship_no", e.target.value)}
+                className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 font-mono"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <ReqLabel>Date of Birth</ReqLabel>
               <DateField
                 label="Select date of birth"
                 date={form.date_of_birth}
@@ -309,37 +435,43 @@ export default function AddCandidatePage() {
                 disableFuture
               />
             </div>
+
+            <ProfilePortraitUpload
+              preview={profileImagePreview}
+              onChange={handleProfileImageChange}
+              onClear={removeProfileImage}
+            />
           </CardContent>
         </Card>
 
         {/* Passport Details */}
-        <Card className="glass-card shadow-lg border-0 overflow-hidden animate-slide-in" style={{ animationDelay: '0.2s' }}>
+        <Card className="candidate-glass-card border-0 overflow-hidden candidate-slide-in shadow-lg">
           <CardHeader className="bg-gradient-to-r from-slate-50 to-blue-50/30 border-b border-slate-100">
             <CardTitle className="text-lg font-bold text-slate-900">Passport Details</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-5 md:grid-cols-2 pt-6">
             <div className="space-y-2">
-              <Label className="text-sm font-semibold text-slate-700">Passport Number</Label>
+              <ReqLabel>Passport Number</ReqLabel>
               <Input
                 data-testid="passport_no"
                 placeholder="Enter passport number"
                 value={form.passport_no}
                 onChange={(e) => setField("passport_no", e.target.value)}
-                className="input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 font-mono"
+                className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 font-mono"
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-sm font-semibold text-slate-700">Place of Issue</Label>
+              <ReqLabel>Place of Issue</ReqLabel>
               <Input
                 placeholder="Enter place of issue"
                 value={form.place_of_issue}
                 onChange={(e) => setField("place_of_issue", e.target.value)}
-                className="input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
               />
             </div>
 
             <div className="space-y-2">
-              <Label className="text-sm font-semibold text-slate-700">Date of Issue</Label>
+              <ReqLabel>Date of Issue</ReqLabel>
               <DateField
                 label="Select issue date"
                 date={form.date_of_issue}
@@ -351,7 +483,7 @@ export default function AddCandidatePage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-sm font-semibold text-slate-700">Date of Expiry</Label>
+              <ReqLabel>Date of Expiry</ReqLabel>
               <DateField
                 label="Select expiry date"
                 date={form.date_of_expiry}
@@ -366,45 +498,174 @@ export default function AddCandidatePage() {
                 }}
               />
             </div>
+
+            <div className="md:col-span-2 grid gap-4 sm:grid-cols-2 border-t border-slate-100 pt-5">
+              <DocUploadField
+                id="cnic-front"
+                label="CNIC Front Image"
+                fileName={cnicFrontName}
+                hint="PDF or image, max 5MB"
+                onFileChange={(e) => handleDocFileChange(e, setCnicFrontFile, setCnicFrontName)}
+                onClear={() => { setCnicFrontFile(null); setCnicFrontName("") }}
+              />
+              <DocUploadField
+                id="cnic-back"
+                label="CNIC Back Image"
+                fileName={cnicBackName}
+                hint="PDF or image, max 5MB"
+                onFileChange={(e) => handleDocFileChange(e, setCnicBackFile, setCnicBackName)}
+                onClear={() => { setCnicBackFile(null); setCnicBackName("") }}
+              />
+            </div>
           </CardContent>
         </Card>
 
         {/* Qualifications */}
-        <Card className="glass-card shadow-lg border-0 overflow-hidden animate-slide-in" style={{ animationDelay: '0.3s' }}>
+        <Card className="candidate-glass-card border-0 overflow-hidden candidate-slide-in shadow-lg">
           <CardHeader className="bg-gradient-to-r from-slate-50 to-blue-50/30 border-b border-slate-100">
-            <CardTitle className="text-lg font-bold text-slate-900">Qualifications</CardTitle>
+            <CardTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <GraduationCap className="h-5 w-5 text-blue-600" />
+              Qualifications
+            </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-5 pt-6">
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold text-slate-700">Academic Qualifications</Label>
-              <Textarea
-                data-testid="academic_qualifications"
-                placeholder="Enter academic qualifications"
-                value={form.academic_qualifications}
-                onChange={(e) => setField("academic_qualifications", e.target.value)}
-                className="input-field min-h-[100px] border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 resize-none"
-              />
+            <div className="grid gap-5 md:grid-cols-2">
+              <div className="space-y-2">
+                <ReqLabel>Primary School</ReqLabel>
+                <Input
+                  data-testid="primary_school"
+                  placeholder="School name, year completed"
+                  value={form.primary_school}
+                  onChange={(e) => setField("primary_school", e.target.value)}
+                  className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+              <div className="space-y-2">
+                <ReqLabel>Secondary School</ReqLabel>
+                <Input
+                  data-testid="secondary_school"
+                  placeholder="School name, year completed"
+                  value={form.secondary_school}
+                  onChange={(e) => setField("secondary_school", e.target.value)}
+                  className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+              <div className="space-y-2">
+                <ReqLabel>Higher Education</ReqLabel>
+                <Input
+                  data-testid="higher_education"
+                  placeholder="University / college, degree, year"
+                  value={form.higher_education}
+                  onChange={(e) => setField("higher_education", e.target.value)}
+                  className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+              <div className="space-y-2">
+                <ReqLabel>Diploma</ReqLabel>
+                <Input
+                  data-testid="diploma"
+                  placeholder="Diploma name, institution, year"
+                  value={form.diploma}
+                  onChange={(e) => setField("diploma", e.target.value)}
+                  className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold text-slate-700">Technical Qualifications</Label>
-              <Textarea
-                data-testid="technical_qualifications"
-                placeholder="Enter technical qualifications"
-                value={form.technical_qualifications}
-                onChange={(e) => setField("technical_qualifications", e.target.value)}
-                className="input-field min-h-[100px] border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 resize-none"
+
+            <div className="grid gap-4 sm:grid-cols-3 border-t border-slate-100 pt-5">
+              <DocUploadField
+                id="matric-cert"
+                label="Matric Certificate"
+                fileName={matricCertName}
+                onFileChange={(e) => handleDocFileChange(e, setMatricCertFile, setMatricCertName)}
+                onClear={() => { setMatricCertFile(null); setMatricCertName("") }}
+              />
+              <DocUploadField
+                id="intermediate-cert"
+                label="Intermediate Certificate"
+                fileName={intermediateCertName}
+                onFileChange={(e) => handleDocFileChange(e, setIntermediateCertFile, setIntermediateCertName)}
+                onClear={() => { setIntermediateCertFile(null); setIntermediateCertName("") }}
+              />
+              <DocUploadField
+                id="diploma-cert"
+                label="Diploma Certificate"
+                fileName={diplomaCertName}
+                onFileChange={(e) => handleDocFileChange(e, setDiplomaCertFile, setDiplomaCertName)}
+                onClear={() => { setDiplomaCertFile(null); setDiplomaCertName("") }}
               />
             </div>
 
-            <div className="space-y-3">
-              <Label className="text-sm font-semibold text-slate-700">Languages Known</Label>
+            {/* Technical Qualifications */}
+            <div className="space-y-3 border-t border-slate-100 pt-5">
+              <div className="flex items-center justify-between">
+                <ReqLabel className="!text-sm">Technical Qualifications</ReqLabel>
+                <Button type="button" variant="outline" size="sm" onClick={addTechnicalQual} className="h-9">
+                  <Plus className="h-4 w-4 mr-1" /> Add Qualification
+                </Button>
+              </div>
+              <p className="text-xs text-slate-500">List each technical qualification and attach its certification.</p>
+              <div className="space-y-4">
+                  {technicalQuals.map((tq, index) => (
+                    <div key={index} className="p-4 border border-slate-200 rounded-xl bg-slate-50/50 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Qualification #{index + 1}</span>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => removeTechnicalQual(index)} className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50">
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="grid gap-3 md:grid-cols-3">
+                        <Input
+                          placeholder="Qualification name"
+                          value={tq.qualification_name}
+                          onChange={(e) => updateTechnicalQual(index, "qualification_name", e.target.value)}
+                          className="h-10"
+                        />
+                        <Input
+                          placeholder="Institution / issuing body"
+                          value={tq.institution}
+                          onChange={(e) => updateTechnicalQual(index, "institution", e.target.value)}
+                          className="h-10"
+                        />
+                        <Input
+                          placeholder="Year"
+                          value={tq.year}
+                          onChange={(e) => updateTechnicalQual(index, "year", e.target.value)}
+                          className="h-10"
+                        />
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Label htmlFor={`tech-cert-${index}`} className="cursor-pointer">
+                          <span className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 border border-blue-200 rounded-lg px-3 py-2 bg-white">
+                            <Upload className="h-4 w-4" />
+                            {tq.certificateFileName || "Attach Certification"}
+                          </span>
+                        </Label>
+                        <input
+                          id={`tech-cert-${index}`}
+                          type="file"
+                          accept=".pdf,image/*"
+                          onChange={(e) => handleTechQualCertChange(index, e)}
+                          className="hidden"
+                        />
+                        {tq.certificateFileName && (
+                          <span className="text-xs text-slate-500 truncate max-w-[200px]">{tq.certificateFileName}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            <div className="space-y-3 border-t border-slate-100 pt-5">
+              <ReqLabel>Languages Known</ReqLabel>
               <div className="flex gap-2">
                 <Input
                   placeholder="Add language (e.g., English, Urdu)"
                   value={languageInput}
                   onChange={(e) => setLanguageInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addLanguage())}
-                  className="input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                  className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                 />
                 <Button
                   type="button"
@@ -436,110 +697,111 @@ export default function AddCandidatePage() {
           </CardContent>
         </Card>
 
-        {/* Position & Experience */}
-        <Card className="glass-card shadow-lg border-0 overflow-hidden animate-slide-in" style={{ animationDelay: '0.4s' }}>
+        {/* Role & Experience */}
+        <Card className="candidate-glass-card border-0 overflow-hidden candidate-slide-in shadow-lg">
           <CardHeader className="bg-gradient-to-r from-slate-50 to-blue-50/30 border-b border-slate-100">
             <CardTitle className="text-lg font-bold text-slate-900">Role & Experience</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-5 md:grid-cols-2 pt-6">
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold text-slate-700">Post Applied For</Label>
-              <Input
-                data-testid="post_applied_for"
-                placeholder="Enter position"
-                value={form.post_applied_for}
-                onChange={(e) => setField("post_applied_for", e.target.value)}
-                className="input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-              />
+          <CardContent className="grid gap-5 pt-6">
+            <div className="grid gap-5 md:grid-cols-2">
+              <div className="space-y-2">
+                <ReqLabel>Post Applied For</ReqLabel>
+                <Input
+                  data-testid="post_applied_for"
+                  placeholder="Enter position"
+                  value={form.post_applied_for}
+                  onChange={(e) => setField("post_applied_for", e.target.value)}
+                  className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+              <div className="space-y-2">
+                <ReqLabel>Referred By</ReqLabel>
+                <Input
+                  data-testid="referred_by"
+                  placeholder="Enter referrer name"
+                  value={form.referred_by}
+                  onChange={(e) => setField("referred_by", e.target.value)}
+                  className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold text-slate-700">Referred By</Label>
-              <Input
-                data-testid="referred_by"
-                placeholder="Enter referrer name"
-                value={form.referred_by}
-                onChange={(e) => setField("referred_by", e.target.value)}
-                className="input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-              />
+
+            <div className="space-y-3 border-t border-slate-100 pt-5">
+              <ReqLabel>Experience (Years)</ReqLabel>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="space-y-2">
+                  <ReqLabel className="!text-xs text-slate-500">GCC Experience</ReqLabel>
+                  <Input
+                    data-testid="gcc_experience"
+                    placeholder="Years"
+                    value={form.gcc_experience}
+                    onChange={(e) => setField("gcc_experience", sanitizeExperienceInput(e.target.value))}
+                    className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <ReqLabel className="!text-xs text-slate-500">KSA Experience</ReqLabel>
+                  <Input
+                    data-testid="ksa_experience"
+                    placeholder="Years"
+                    value={form.ksa_experience}
+                    onChange={(e) => setField("ksa_experience", sanitizeExperienceInput(e.target.value))}
+                    className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <ReqLabel className="!text-xs text-slate-500">Local Experience</ReqLabel>
+                  <Input
+                    data-testid="local_experience"
+                    placeholder="Years"
+                    value={form.local_experience}
+                    onChange={(e) => setField("local_experience", sanitizeExperienceInput(e.target.value))}
+                    className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs text-slate-500">Total Experience</Label>
+                  <Input
+                    data-testid="experience_total"
+                    value={experienceTotal || "0"}
+                    readOnly
+                    className="candidate-input-field h-11 border-slate-200 bg-slate-100 text-slate-700 font-semibold cursor-not-allowed"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-slate-500">Total is calculated automatically from GCC, KSA, and Local experience.</p>
             </div>
+
+            <DocUploadField
+              id="experience-letter"
+              label="Experience Letter"
+              fileName={experienceLetterName}
+              hint="PDF or image, max 5MB"
+              onFileChange={(e) => handleDocFileChange(e, setExperienceLetterFile, setExperienceLetterName)}
+              onClear={() => { setExperienceLetterFile(null); setExperienceLetterName("") }}
+            />
+
             <div className="space-y-2">
-              <Label className="text-sm font-semibold text-slate-700">Total Experience (Years)</Label>
-              <Input
-                data-testid="experience_total"
-                placeholder="Enter years of experience"
-                value={form.experience_total}
-                onChange={(e) => {
-                  const val = e.target.value.replace(/[^0-9.]/g, '')
-                  setField("experience_total", val)
-                }}
-                className="input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-              />
-            </div>
-            <div className="space-y-2 md:col-span-2">
-              <Label className="text-sm font-semibold text-slate-700">Remarks</Label>
+              <ReqLabel>Remarks</ReqLabel>
               <Textarea
                 data-testid="remarks"
                 placeholder="Additional remarks or notes"
                 value={form.remarks}
                 onChange={(e) => setField("remarks", e.target.value)}
-                className="input-field min-h-[100px] border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 resize-none"
+                className="candidate-input-field min-h-[100px] border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 resize-none"
               />
             </div>
           </CardContent>
         </Card>
 
-        {/* File Uploads */}
-        <Card className="glass-card shadow-lg border-0 overflow-hidden animate-slide-in" style={{ animationDelay: '0.5s' }}>
+        {/* CV Attachment */}
+        <Card className="candidate-glass-card border-0 overflow-hidden candidate-slide-in shadow-lg">
           <CardHeader className="bg-gradient-to-r from-slate-50 to-blue-50/30 border-b border-slate-100">
-            <CardTitle className="text-lg font-bold text-slate-900">Attachments</CardTitle>
+            <CardTitle className="text-lg font-bold text-slate-900">CV Attachment</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-6 md:grid-cols-2 pt-6">
-            {/* Profile Image Upload */}
-            <div className="space-y-3">
-              <Label className="text-sm font-semibold text-slate-700">Profile Image</Label>
-              <div className="flex items-center gap-2 text-xs text-slate-500 bg-blue-50 border border-blue-100 rounded-lg p-2.5">
-                <Info className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                <span>JPG/PNG, passport-style portrait, solid background, max 2MB</span>
-              </div>
-              {profileImagePreview ? (
-                <div className="relative group">
-                  <img
-                    src={profileImagePreview}
-                    alt="Profile preview"
-                    className="w-full h-48 object-cover rounded-xl border-2 border-slate-200 shadow-md"
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={removeProfileImage}
-                    className="absolute top-3 right-3 bg-red-600 hover:bg-red-700 text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ) : (
-                <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-blue-400 hover:bg-blue-50/30 transition-all duration-200 cursor-pointer">
-                  <ImageIcon className="mx-auto h-12 w-12 text-slate-400" />
-                  <div className="mt-3">
-                    <Label htmlFor="profile-image" className="cursor-pointer">
-                      <span className="text-sm font-medium text-slate-700 hover:text-blue-600">Click to upload profile image</span>
-                    </Label>
-                    <input
-                      id="profile-image"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleProfileImageChange}
-                      className="hidden"
-                      data-testid="profile-image"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* CV File Upload */}
-            <div className="space-y-3">
-              <Label className="text-sm font-semibold text-slate-700">CV Document</Label>
+          <CardContent className="pt-6">
+            <div className="space-y-3 max-w-xl">
+              <ReqLabel>CV Document</ReqLabel>
               <div className="flex items-center gap-2 text-xs text-slate-500 bg-blue-50 border border-blue-100 rounded-lg p-2.5">
                 <Info className="h-4 w-4 text-blue-600 flex-shrink-0" />
                 <span>PDF or DOC/DOCX, max 5MB</span>
@@ -637,12 +899,12 @@ function DateField({
       <PopoverTrigger asChild>
         <Button
           variant="outline"
-          className="justify-start w-full h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 input-field font-medium text-slate-700"
+          className="justify-start w-full h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 candidate-input-field font-medium text-slate-700"
         >
           <CalendarIcon className="mr-2 h-4 w-4 text-slate-400" /> {date ? format(date, "PPP") : label}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="p-0 border-0 shadow-2xl rounded-2xl overflow-hidden glass-card" align="start">
+      <PopoverContent className="p-0 border-0 shadow-2xl rounded-2xl overflow-hidden candidate-glass-card" align="start">
         <div className="p-4 bg-white/95 backdrop-blur-md">
           <Calendar
             mode="single"

@@ -39,6 +39,8 @@ Set these in `.env.local`:
 - DB_QUERY_TIMEOUT_MS: Query timeout ms (default 20000)
 - ADMIN_EMAIL: Seeded super admin email (default admin@mintinternational.org)
 - ADMIN_PASSWORD: Seeded super admin password (default admin123)
+- ADMIN_ROLE_EMAIL: Seeded admin role email (default admin_role@mintinternational.org)
+- ADMIN_ROLE_PASSWORD: Seeded admin role password (default adminrole123)
 - RECEPTIONIST_EMAIL: Seeded receptionist email
 - RECEPTIONIST_PASSWORD: Seeded receptionist password
 - AGENT_EMAIL: Seeded process agent email

@@ -43,12 +43,25 @@ CREATE TABLE candidates (
     date_of_issue DATE,
     date_of_expiry DATE,
     place_of_issue VARCHAR(255),
+    cnic_front_image VARCHAR(500),
+    cnic_back_image VARCHAR(500),
+    primary_school TEXT,
+    secondary_school TEXT,
+    higher_education TEXT,
+    diploma TEXT,
+    matric_certificate VARCHAR(500),
+    intermediate_certificate VARCHAR(500),
+    diploma_certificate VARCHAR(500),
     academic_qualifications TEXT,
     technical_qualifications TEXT,
     languages_known TEXT[], -- Array of languages
+    gcc_experience VARCHAR(50),
+    ksa_experience VARCHAR(50),
+    local_experience VARCHAR(50),
     experience_total VARCHAR(50),
     post_applied_for VARCHAR(255),
     referred_by VARCHAR(255),
+    experience_letter VARCHAR(500),
     profile_image VARCHAR(500),
     cv_file VARCHAR(500),
     remarks TEXT,
@@ -65,6 +78,27 @@ CREATE TABLE experience_details (
     company_name VARCHAR(255) NOT NULL,
     duration VARCHAR(100),
     trade VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Technical qualification details (one-to-many with candidates)
+CREATE TABLE technical_qualification_details (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    candidate_id UUID REFERENCES candidates(id) ON DELETE CASCADE,
+    qualification_name VARCHAR(255) NOT NULL,
+    institution VARCHAR(255),
+    year VARCHAR(20),
+    certificate_file VARCHAR(500),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Candidate certificate attachments (one-to-many with candidates)
+CREATE TABLE candidate_certificates (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    candidate_id UUID REFERENCES candidates(id) ON DELETE CASCADE,
+    file_url VARCHAR(500) NOT NULL,
+    file_name VARCHAR(255),
+    description TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/database"
 import { requireAuth } from "@/lib/api-auth"
 import { saveFile } from "@/lib/uploads"
+import { computeExperienceTotal } from "@/lib/candidate-experience"
 
 export const runtime = "nodejs"
 
@@ -76,22 +77,37 @@ export async function POST(request: NextRequest) {
     let payload: any = {}
     let profileImageUrl: string | null = null
     let cvFileUrl: string | null = null
+    let cnicFrontUrl: string | null = null
+    let cnicBackUrl: string | null = null
+    let matricCertificateUrl: string | null = null
+    let intermediateCertificateUrl: string | null = null
+    let diplomaCertificateUrl: string | null = null
+    let experienceLetterUrl: string | null = null
 
     if (contentType.includes("multipart/form-data")) {
       const form = await request.formData()
       // Strings
       payload.full_name = String(form.get("full_name") || "").trim()
+      payload.surname = String(form.get("surname") || "").trim()
       payload.father_name = String(form.get("father_name") || "").trim()
       payload.date_of_birth = String(form.get("date_of_birth") || "") || null
       payload.marital_status = String(form.get("marital_status") || "").trim()
       payload.religion = String(form.get("religion") || "").trim()
+      payload.sex = String(form.get("sex") || "").trim()
+      payload.citizenship_no = String(form.get("citizenship_no") || "").trim()
       payload.passport_no = String(form.get("passport_no") || "").trim()
       payload.date_of_issue = String(form.get("date_of_issue") || "") || null
       payload.date_of_expiry = String(form.get("date_of_expiry") || "") || null
       payload.place_of_issue = String(form.get("place_of_issue") || "").trim()
+      payload.primary_school = String(form.get("primary_school") || "").trim()
+      payload.secondary_school = String(form.get("secondary_school") || "").trim()
+      payload.higher_education = String(form.get("higher_education") || "").trim()
+      payload.diploma = String(form.get("diploma") || "").trim()
       payload.academic_qualifications = String(form.get("academic_qualifications") || "")
       payload.technical_qualifications = String(form.get("technical_qualifications") || "")
-      payload.experience_total = String(form.get("experience_total") || "").trim()
+      payload.gcc_experience = String(form.get("gcc_experience") || "").trim()
+      payload.ksa_experience = String(form.get("ksa_experience") || "").trim()
+      payload.local_experience = String(form.get("local_experience") || "").trim()
       payload.post_applied_for = String(form.get("post_applied_for") || "").trim()
       payload.referred_by = String(form.get("referred_by") || "").trim()
       payload.remarks = String(form.get("remarks") || "")
@@ -121,6 +137,18 @@ export async function POST(request: NextRequest) {
         payload.experience_details = []
       }
 
+      const techQualRaw = form.get("technical_qualification_details")
+      if (typeof techQualRaw === "string") {
+        try {
+          const arr = JSON.parse(techQualRaw)
+          payload.technical_qualification_details = Array.isArray(arr) ? arr : []
+        } catch {
+          payload.technical_qualification_details = []
+        }
+      } else {
+        payload.technical_qualification_details = []
+      }
+
       // Files
       const profileImage = form.get("profile_image_file")
       if (profileImage instanceof File && profileImage.size > 0) {
@@ -130,60 +158,129 @@ export async function POST(request: NextRequest) {
       if (cvDoc instanceof File && cvDoc.size > 0) {
         cvFileUrl = (await saveFile("cv-docs", cvDoc)).url
       }
+      const cnicFront = form.get("cnic_front_file")
+      if (cnicFront instanceof File && cnicFront.size > 0) {
+        cnicFrontUrl = (await saveFile("cnic-images", cnicFront)).url
+      }
+      const cnicBack = form.get("cnic_back_file")
+      if (cnicBack instanceof File && cnicBack.size > 0) {
+        cnicBackUrl = (await saveFile("cnic-images", cnicBack)).url
+      }
+      const matricCert = form.get("matric_certificate_file")
+      if (matricCert instanceof File && matricCert.size > 0) {
+        matricCertificateUrl = (await saveFile("certificates", matricCert)).url
+      }
+      const intermediateCert = form.get("intermediate_certificate_file")
+      if (intermediateCert instanceof File && intermediateCert.size > 0) {
+        intermediateCertificateUrl = (await saveFile("certificates", intermediateCert)).url
+      }
+      const diplomaCert = form.get("diploma_certificate_file")
+      if (diplomaCert instanceof File && diplomaCert.size > 0) {
+        diplomaCertificateUrl = (await saveFile("certificates", diplomaCert)).url
+      }
+      const experienceLetter = form.get("experience_letter_file")
+      if (experienceLetter instanceof File && experienceLetter.size > 0) {
+        experienceLetterUrl = (await saveFile("experience-letters", experienceLetter)).url
+      }
+
+      // Technical qualification certificate files (indexed: technical_qual_cert_0, etc.)
+      for (let i = 0; i < payload.technical_qualification_details.length; i++) {
+        const certFile = form.get(`technical_qual_cert_${i}`)
+        if (certFile instanceof File && certFile.size > 0) {
+          payload.technical_qualification_details[i].certificate_file = (await saveFile("certificates", certFile)).url
+        }
+      }
     } else {
       // JSON body fallback
       const data = await request.json()
       payload = data
       profileImageUrl = data.profile_image || null
       cvFileUrl = data.cv_file || null
+      cnicFrontUrl = data.cnic_front_image || null
+      cnicBackUrl = data.cnic_back_image || null
+      matricCertificateUrl = data.matric_certificate || null
+      intermediateCertificateUrl = data.intermediate_certificate || null
+      diplomaCertificateUrl = data.diploma_certificate || null
+      experienceLetterUrl = data.experience_letter || null
     }
 
     const {
       full_name,
+      surname,
       father_name,
       date_of_birth,
       marital_status,
       religion,
+      sex,
+      citizenship_no,
       passport_no,
       date_of_issue,
       date_of_expiry,
       place_of_issue,
+      primary_school,
+      secondary_school,
+      higher_education,
+      diploma,
       academic_qualifications,
       technical_qualifications,
       languages_known,
-      experience_total,
+      gcc_experience,
+      ksa_experience,
+      local_experience,
       post_applied_for,
       referred_by,
       remarks,
       experience_details,
+      technical_qualification_details,
     } = payload
+
+    const experience_total = computeExperienceTotal(gcc_experience, ksa_experience, local_experience)
 
     // Insert candidate
     const candidateResult = await query(
       `INSERT INTO candidates (
-        full_name, father_name, date_of_birth, marital_status, religion,
-        passport_no, date_of_issue, date_of_expiry, place_of_issue,
+        full_name, surname, father_name, date_of_birth, marital_status, religion, sex, citizenship_no,
+        passport_no, date_of_issue, date_of_expiry, place_of_issue, cnic_front_image, cnic_back_image,
+        primary_school, secondary_school, higher_education, diploma,
+        matric_certificate, intermediate_certificate, diploma_certificate,
         academic_qualifications, technical_qualifications, languages_known,
-        experience_total, post_applied_for, referred_by, profile_image,
+        gcc_experience, ksa_experience, local_experience, experience_total,
+        post_applied_for, referred_by, experience_letter, profile_image,
         cv_file, remarks, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35)
       RETURNING id`,
       [
         full_name,
+        surname,
         father_name,
         date_of_birth,
         marital_status,
         religion,
+        sex,
+        citizenship_no,
         passport_no,
         date_of_issue,
         date_of_expiry,
         place_of_issue,
+        cnicFrontUrl,
+        cnicBackUrl,
+        primary_school,
+        secondary_school,
+        higher_education,
+        diploma,
+        matricCertificateUrl,
+        intermediateCertificateUrl,
+        diplomaCertificateUrl,
         academic_qualifications,
         technical_qualifications,
         languages_known,
+        gcc_experience,
+        ksa_experience,
+        local_experience,
         experience_total,
         post_applied_for,
         referred_by,
+        experienceLetterUrl,
         profileImageUrl,
         cvFileUrl,
         remarks,
@@ -200,6 +297,18 @@ export async function POST(request: NextRequest) {
           `INSERT INTO experience_details (candidate_id, company_name, duration, trade)
            VALUES ($1, $2, $3, $4)`,
           [candidateId, exp.company_name, exp.duration, exp.trade],
+        )
+      }
+    }
+
+    // Insert technical qualification details
+    if (technical_qualification_details && technical_qualification_details.length > 0) {
+      for (const tq of technical_qualification_details) {
+        if (!tq.qualification_name?.trim()) continue
+        await query(
+          `INSERT INTO technical_qualification_details (candidate_id, qualification_name, institution, year, certificate_file)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [candidateId, tq.qualification_name, tq.institution || null, tq.year || null, tq.certificate_file || null],
         )
       }
     }

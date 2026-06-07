@@ -1,5 +1,6 @@
 // Minimal Postgres init script: seeds first super_admin user if missing
 // Requires: process.env.DATABASE_URL
+require('dotenv').config({ path: '.env.local' })
 const { Client } = require('pg')
 const bcrypt = require('bcryptjs')
 
@@ -37,6 +38,12 @@ async function run() {
 
     // Seed additional demo accounts for dashboards if missing
     const demoUsers = [
+      {
+        email: process.env.ADMIN_ROLE_EMAIL || 'admin_role@mintinternational.org',
+        password: process.env.ADMIN_ROLE_PASSWORD || 'adminrole123',
+        role: 'admin',
+        fullName: 'Admin User',
+      },
       {
         email: process.env.RECEPTIONIST_EMAIL || 'receptionist@mintinternational.org',
         password: process.env.RECEPTIONIST_PASSWORD || 'receptionist123',

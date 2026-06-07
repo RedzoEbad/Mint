@@ -128,6 +128,37 @@ export const experienceDetails = pgTable("experience_details", {
 		}).onDelete("cascade"),
 ]);
 
+export const technicalQualificationDetails = pgTable("technical_qualification_details", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	candidateId: uuid("candidate_id").notNull(),
+	qualificationName: varchar("qualification_name", { length: 255 }).notNull(),
+	institution: varchar({ length: 255 }),
+	year: varchar({ length: 20 }),
+	certificateFile: varchar("certificate_file", { length: 500 }),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+}, (table) => [
+	foreignKey({
+			columns: [table.candidateId],
+			foreignColumns: [candidates.id],
+			name: "technical_qualification_details_candidate_id_candidates_id_fk"
+		}).onDelete("cascade"),
+]);
+
+export const candidateCertificates = pgTable("candidate_certificates", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	candidateId: uuid("candidate_id").notNull(),
+	fileUrl: varchar("file_url", { length: 500 }).notNull(),
+	fileName: varchar("file_name", { length: 255 }),
+	description: text(),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow(),
+}, (table) => [
+	foreignKey({
+			columns: [table.candidateId],
+			foreignColumns: [candidates.id],
+			name: "candidate_certificates_candidate_id_candidates_id_fk"
+		}).onDelete("cascade"),
+]);
+
 export const companies = pgTable("companies", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	name: varchar({ length: 255 }).notNull(),
@@ -191,20 +222,36 @@ export const auditLogs = pgTable("audit_logs", {
 export const candidates = pgTable("candidates", {
 	id: uuid().defaultRandom().primaryKey().notNull(),
 	fullName: varchar("full_name", { length: 255 }).notNull(),
+	surname: varchar("surname", { length: 255 }),
 	fatherName: varchar("father_name", { length: 255 }),
 	dateOfBirth: date("date_of_birth"),
 	maritalStatus: varchar("marital_status", { length: 50 }),
 	religion: varchar({ length: 100 }),
+	sex: varchar("sex", { length: 10 }),
+	citizenshipNo: varchar("citizenship_no", { length: 50 }),
 	passportNo: varchar("passport_no", { length: 50 }),
 	dateOfIssue: date("date_of_issue"),
 	dateOfExpiry: date("date_of_expiry"),
 	placeOfIssue: varchar("place_of_issue", { length: 255 }),
+	cnicFrontImage: varchar("cnic_front_image", { length: 500 }),
+	cnicBackImage: varchar("cnic_back_image", { length: 500 }),
+	primarySchool: text("primary_school"),
+	secondarySchool: text("secondary_school"),
+	higherEducation: text("higher_education"),
+	diploma: text(),
+	matricCertificate: varchar("matric_certificate", { length: 500 }),
+	intermediateCertificate: varchar("intermediate_certificate", { length: 500 }),
+	diplomaCertificate: varchar("diploma_certificate", { length: 500 }),
 	academicQualifications: text("academic_qualifications"),
 	technicalQualifications: text("technical_qualifications"),
 	languagesKnown: text("languages_known").array(),
+	gccExperience: varchar("gcc_experience", { length: 50 }),
+	ksaExperience: varchar("ksa_experience", { length: 50 }),
+	localExperience: varchar("local_experience", { length: 50 }),
 	experienceTotal: varchar("experience_total", { length: 50 }),
 	postAppliedFor: varchar("post_applied_for", { length: 255 }),
 	referredBy: varchar("referred_by", { length: 255 }),
+	experienceLetter: varchar("experience_letter", { length: 500 }),
 	profileImage: varchar("profile_image", { length: 500 }),
 	cvFile: varchar("cv_file", { length: 500 }),
 	remarks: text(),

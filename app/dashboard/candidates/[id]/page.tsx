@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { getValidToken } from "@/lib/token-utils"
-import { FileDown, Edit, ArrowLeft } from "lucide-react"
+import { FileDown, Edit, ArrowLeft, FileSpreadsheet } from "lucide-react"
 import { format } from "date-fns"
 import { PageLoader } from "@/components/ui/page-loader"
 import {
@@ -41,6 +41,27 @@ export default function CandidateDetailsPage() {
       })()
   }, [id])
 
+  async function downloadExcel() {
+    try {
+      const token = getValidToken()
+      const res = await fetch(`/api/candidates/${id}/excel`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      if (!res.ok) throw new Error("Failed to generate Excel")
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `candidate-${candidate?.passport_no || id}.csv`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      console.error("Excel error", e)
+    }
+  }
+
   async function downloadPdf(type: "client" | "own" = "own") {
     try {
       const token = getValidToken()
@@ -69,20 +90,23 @@ export default function CandidateDetailsPage() {
           <Button variant="outline" onClick={() => router.push("/dashboard/candidates")}>
             <ArrowLeft className="h-4 w-4 mr-2" /> Back
           </Button>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline"><FileDown className="h-4 w-4 mr-2" /> PDF</Button>
+                <Button variant="outline"><FileDown className="h-4 w-4 mr-2" /> Download PDF</Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="glass-card">
+              <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => downloadPdf("client")} className="cursor-pointer">
-                  Download Client PDF
+                  Client PDF
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => downloadPdf("own")} className="cursor-pointer">
-                  Download Own PDF (Full)
+                  Full PDF (Internal)
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <Button variant="outline" onClick={downloadExcel}>
+              <FileSpreadsheet className="h-4 w-4 mr-2" /> Download Excel
+            </Button>
             <Button asChild>
               <Link href={`/dashboard/candidates/${id}/edit`}><Edit className="h-4 w-4 mr-2" /> Edit</Link>
             </Button>
@@ -118,17 +142,20 @@ export default function CandidateDetailsPage() {
                   <CardTitle>Personal Information</CardTitle>
                 </CardHeader>
                 <CardContent className="grid gap-4 md:grid-cols-2">
-                  <StaticField label="Full name" value={candidate.full_name} />
-                  <StaticField label="Father name" value={candidate.father_name} />
-
-                  <div className="flex items-center gap-2 md:col-span-2">
-                    <StaticField label="Marital status" value={candidate.marital_status} className="flex-1" />
-                    <StaticField label="Religion" value={candidate.religion} className="flex-1" />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-1 gap-3 md:col-span-2">
-                    <StaticField label="Date of birth" value={candidate.date_of_birth ? format(new Date(candidate.date_of_birth), "PPP") : "-"} />
-                  </div>
+                  <StaticField label="Given Names" value={candidate.full_name} />
+                  <StaticField label="Surname" value={candidate.surname} />
+                  <StaticField label="Father's Name" value={candidate.father_name} />
+                  <StaticField label="Marital Status" value={candidate.marital_status} />
+                  <StaticField label="Religion" value={candidate.religion} />
+                  <StaticField label="Sex" value={candidate.sex} />
+                  <StaticField label="Citizenship Number" value={candidate.citizenship_no} />
+                  <StaticField label="Date of Birth" value={candidate.date_of_birth ? format(new Date(candidate.date_of_birth), "PPP") : "-"} />
+                  {candidate.profile_image ? (
+                    <div className="md:col-span-2">
+                      <div className="text-xs text-gray-500 mb-2">Profile image</div>
+                      <img src={candidate.profile_image} alt="Profile" className="w-32 h-40 object-cover rounded-lg border" />
+                    </div>
+                  ) : null}
                 </CardContent>
               </Card>
 
@@ -146,6 +173,10 @@ export default function CandidateDetailsPage() {
                     <StaticField label="Date of issue" value={candidate.date_of_issue ? format(new Date(candidate.date_of_issue), "PPP") : "-"} />
                     <StaticField label="Date of expiry" value={candidate.date_of_expiry ? format(new Date(candidate.date_of_expiry), "PPP") : "-"} />
                   </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <DocLink label="CNIC front" url={candidate.cnic_front_image} />
+                    <DocLink label="CNIC back" url={candidate.cnic_back_image} />
+                  </div>
                 </CardContent>
               </Card>
 
@@ -155,8 +186,36 @@ export default function CandidateDetailsPage() {
                   <CardTitle>Qualifications</CardTitle>
                 </CardHeader>
                 <CardContent className="grid gap-4">
-                  <StaticField label="Academic qualifications" value={candidate.academic_qualifications} multiline />
-                  <StaticField label="Technical qualifications" value={candidate.technical_qualifications} multiline />
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <StaticField label="Primary school" value={candidate.primary_school} />
+                    <StaticField label="Secondary school" value={candidate.secondary_school} />
+                    <StaticField label="Higher education" value={candidate.higher_education} />
+                    <StaticField label="Diploma" value={candidate.diploma} />
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <DocLink label="Matric certificate" url={candidate.matric_certificate} />
+                    <DocLink label="Intermediate certificate" url={candidate.intermediate_certificate} />
+                    <DocLink label="Diploma certificate" url={candidate.diploma_certificate} />
+                  </div>
+                  {Array.isArray(candidate.technical_qualification_details) && candidate.technical_qualification_details.length > 0 ? (
+                    <div>
+                      <div className="mb-2 text-sm text-gray-600">Technical qualifications</div>
+                      <div className="space-y-2">
+                        {candidate.technical_qualification_details.map((tq: any) => (
+                          <div key={tq.id} className="p-3 border rounded-lg bg-gray-50 text-sm">
+                            <div className="font-medium">{tq.qualification_name}</div>
+                            {tq.institution && <div className="text-gray-600">Institution: {tq.institution}</div>}
+                            {tq.year && <div className="text-gray-600">Year: {tq.year}</div>}
+                            {tq.certificate_file && (
+                              <a href={tq.certificate_file} target="_blank" rel="noreferrer" className="text-blue-600 underline text-xs mt-1 inline-block">
+                                View certification
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                   {Array.isArray(candidate.languages_known) && candidate.languages_known.length > 0 ? (
                     <div>
                       <div className="mb-2 text-sm text-gray-600">Languages known</div>
@@ -177,42 +236,29 @@ export default function CandidateDetailsPage() {
                 <CardHeader>
                   <CardTitle>Role & Experience</CardTitle>
                 </CardHeader>
-                <CardContent className="grid gap-4 md:grid-cols-2">
-                  <StaticField label="Post applied for" value={candidate.post_applied_for} />
-                  <StaticField label="Referred by" value={candidate.referred_by} />
-                  <StaticField label="Experience total (years)" value={candidate.experience_total} />
+                <CardContent className="grid gap-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <StaticField label="Post applied for" value={candidate.post_applied_for} />
+                    <StaticField label="Referred by" value={candidate.referred_by} />
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <StaticField label="GCC experience (years)" value={candidate.gcc_experience} />
+                    <StaticField label="KSA experience (years)" value={candidate.ksa_experience} />
+                    <StaticField label="Local experience (years)" value={candidate.local_experience} />
+                    <StaticField label="Total experience (years)" value={candidate.experience_total} />
+                  </div>
+                  <DocLink label="Experience letter" url={candidate.experience_letter} />
                   <StaticField label="Remarks" value={candidate.remarks} multiline />
                 </CardContent>
               </Card>
 
-              {/* Attachments */}
+              {/* CV */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Attachments</CardTitle>
+                  <CardTitle>CV Attachment</CardTitle>
                 </CardHeader>
-                <CardContent className="grid gap-6 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <div className="text-xs text-gray-500">Profile Image</div>
-                    {candidate.profile_image ? (
-                      <div className="relative w-full max-w-[220px] aspect-[3/4] rounded-xl border bg-gray-50 overflow-hidden shadow-sm">
-                        <img
-                          src={candidate.profile_image}
-                          alt="Profile"
-                          className="absolute inset-0 h-full w-full object-cover"
-                        />
-                      </div>
-                    ) : (
-                      <div className="text-xs text-gray-400">No image uploaded</div>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <div className="text-xs text-gray-500">CV Document</div>
-                    {candidate.cv_file ? (
-                      <a href={candidate.cv_file} target="_blank" rel="noreferrer" className="text-blue-600 underline">Open CV</a>
-                    ) : (
-                      <div className="text-xs text-gray-400">No CV uploaded</div>
-                    )}
-                  </div>
+                <CardContent>
+                  <DocLink label="CV document" url={candidate.cv_file} />
                 </CardContent>
               </Card>
             </>
@@ -228,6 +274,19 @@ function StaticField({ label, value, className, multiline }: { label: string; va
     <div className={`space-y-1 ${className || ""}`.trim()}>
       <div className="text-xs text-gray-500">{label}</div>
       <div className={`text-sm ${multiline ? "whitespace-pre-wrap" : ""}`.trim()}>{value || "-"}</div>
+    </div>
+  )
+}
+
+function DocLink({ label, url }: { label: string; url?: string }) {
+  return (
+    <div className="space-y-1">
+      <div className="text-xs text-gray-500">{label}</div>
+      {url ? (
+        <a href={url} target="_blank" rel="noreferrer" className="text-sm text-blue-600 underline">View document</a>
+      ) : (
+        <div className="text-sm text-gray-400">-</div>
+      )}
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/database"
 import { getToken } from "next-auth/jwt"
+import { computeExperienceTotal } from "@/lib/candidate-experience"
 
 const secret = process.env.NEXTAUTH_SECRET || "mint-international-secret-key-2024"
 
@@ -33,9 +34,21 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       [id],
     )
 
+    const technicalQualResult = await query(
+      `SELECT * FROM technical_qualification_details WHERE candidate_id = $1 ORDER BY created_at`,
+      [id],
+    )
+
+    const certificatesResult = await query(
+      `SELECT * FROM candidate_certificates WHERE candidate_id = $1 ORDER BY created_at`,
+      [id],
+    )
+
     const candidate = {
       ...candidateResult.rows[0],
       experience_details: experienceResult.rows,
+      technical_qualification_details: technicalQualResult.rows,
+      certificate_attachments: certificatesResult.rows,
     }
 
     return NextResponse.json({
@@ -64,53 +77,91 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
     const data = await request.json()
     const {
       full_name,
+      surname,
       father_name,
       date_of_birth,
       marital_status,
       religion,
+      sex,
+      citizenship_no,
       passport_no,
       date_of_issue,
       date_of_expiry,
       place_of_issue,
+      primary_school,
+      secondary_school,
+      higher_education,
+      diploma,
       academic_qualifications,
       technical_qualifications,
       languages_known,
-      experience_total,
+      gcc_experience,
+      ksa_experience,
+      local_experience,
       post_applied_for,
       referred_by,
+      cnic_front_image,
+      cnic_back_image,
+      matric_certificate,
+      intermediate_certificate,
+      diploma_certificate,
+      experience_letter,
       profile_image,
       cv_file,
       remarks,
       status,
       experience_details,
+      technical_qualification_details,
     } = data
+
+    const experience_total = computeExperienceTotal(gcc_experience, ksa_experience, local_experience)
 
     // Update candidate
     await query(
       `UPDATE candidates SET
-        full_name = $1, father_name = $2, date_of_birth = $3, marital_status = $4,
-        religion = $5, passport_no = $6, date_of_issue = $7, date_of_expiry = $8,
-        place_of_issue = $9, academic_qualifications = $10, technical_qualifications = $11,
-        languages_known = $12, experience_total = $13, post_applied_for = $14,
-        referred_by = $15, profile_image = $16, cv_file = $17, remarks = $18,
-        status = $19, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $20`,
+        full_name = $1, surname = $2, father_name = $3, date_of_birth = $4, marital_status = $5,
+        religion = $6, sex = $7, citizenship_no = $8, passport_no = $9, date_of_issue = $10, date_of_expiry = $11,
+        place_of_issue = $12, cnic_front_image = $13, cnic_back_image = $14,
+        primary_school = $15, secondary_school = $16, higher_education = $17, diploma = $18,
+        matric_certificate = $19, intermediate_certificate = $20, diploma_certificate = $21,
+        academic_qualifications = $22, technical_qualifications = $23,
+        languages_known = $24, gcc_experience = $25, ksa_experience = $26, local_experience = $27,
+        experience_total = $28, post_applied_for = $29,
+        referred_by = $30, experience_letter = $31, profile_image = $32, cv_file = $33, remarks = $34,
+        status = $35, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $36`,
       [
         full_name,
+        surname,
         father_name,
         date_of_birth,
         marital_status,
         religion,
+        sex,
+        citizenship_no,
         passport_no,
         date_of_issue,
         date_of_expiry,
         place_of_issue,
+        cnic_front_image,
+        cnic_back_image,
+        primary_school,
+        secondary_school,
+        higher_education,
+        diploma,
+        matric_certificate,
+        intermediate_certificate,
+        diploma_certificate,
         academic_qualifications,
         technical_qualifications,
         languages_known,
+        gcc_experience,
+        ksa_experience,
+        local_experience,
         experience_total,
         post_applied_for,
         referred_by,
+        experience_letter,
         profile_image,
         cv_file,
         remarks,
@@ -121,15 +172,25 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
 
     // Update experience details
     if (experience_details) {
-      // Delete existing experience details
       await query("DELETE FROM experience_details WHERE candidate_id = $1", [id])
-
-      // Insert new experience details
       for (const exp of experience_details) {
         await query(
           `INSERT INTO experience_details (candidate_id, company_name, duration, trade)
            VALUES ($1, $2, $3, $4)`,
           [id, exp.company_name, exp.duration, exp.trade],
+        )
+      }
+    }
+
+    // Update technical qualification details
+    if (technical_qualification_details) {
+      await query("DELETE FROM technical_qualification_details WHERE candidate_id = $1", [id])
+      for (const tq of technical_qualification_details) {
+        if (!tq.qualification_name?.trim()) continue
+        await query(
+          `INSERT INTO technical_qualification_details (candidate_id, qualification_name, institution, year, certificate_file)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [id, tq.qualification_name, tq.institution || null, tq.year || null, tq.certificate_file || null],
         )
       }
     }
