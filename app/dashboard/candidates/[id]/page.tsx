@@ -10,6 +10,7 @@ import { getValidToken } from "@/lib/token-utils"
 import { FileDown, Edit, ArrowLeft, FileSpreadsheet } from "lucide-react"
 import { format } from "date-fns"
 import { PageLoader } from "@/components/ui/page-loader"
+import { useToast } from "@/hooks/use-toast"
 import { SecureFileLink, SecureImage } from "@/components/secure-file"
 import {
   DropdownMenu,
@@ -21,6 +22,7 @@ import {
 export default function CandidateDetailsPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [candidate, setCandidate] = useState<any>(null)
 
@@ -65,12 +67,17 @@ export default function CandidateDetailsPage() {
 
   async function downloadPdf(type: "client" | "own" = "own") {
     try {
-      const token = getValidToken()
       const res = await fetch(`/api/candidates/${id}/pdf?type=${type}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include",
       })
-      if (!res.ok) throw new Error("Failed to generate PDF")
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || "Failed to generate PDF")
+      }
       const blob = await res.blob()
+      if (blob.type && !blob.type.includes("pdf")) {
+        throw new Error("Server did not return a PDF file")
+      }
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
@@ -79,8 +86,9 @@ export default function CandidateDetailsPage() {
       a.click()
       a.remove()
       URL.revokeObjectURL(url)
-    } catch (e) {
+    } catch (e: any) {
       console.error("PDF error", e)
+      toast({ title: "PDF download failed", description: e?.message || "Could not generate PDF", variant: "destructive" })
     }
   }
 

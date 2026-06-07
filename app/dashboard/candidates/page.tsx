@@ -142,9 +142,17 @@ export default function CandidatesPage() {
 
   async function downloadCandidatePdf(candidateId: string, type: "client" | "own" = "own") {
     try {
-      const res = await fetch(`/api/candidates/${candidateId}/pdf?type=${type}`)
-      if (!res.ok) throw new Error("Failed to generate PDF")
+      const res = await fetch(`/api/candidates/${candidateId}/pdf?type=${type}`, {
+        credentials: "include",
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || "Failed to generate PDF")
+      }
       const blob = await res.blob()
+      if (blob.type && !blob.type.includes("pdf")) {
+        throw new Error("Server did not return a PDF file")
+      }
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
@@ -153,8 +161,9 @@ export default function CandidatesPage() {
       a.click()
       a.remove()
       URL.revokeObjectURL(url)
-    } catch (err) {
+    } catch (err: any) {
       console.error("PDF error", err)
+      toast({ title: "PDF download failed", description: err?.message || "Could not generate PDF", variant: "destructive" })
     }
   }
 

@@ -12,6 +12,8 @@ const withBundleAnalyzer = bundleAnalyzer({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Keep PDFKit out of webpack bundles so it can load js/data/*.afm fonts.
+  serverExternalPackages: ["pdfkit", "fontkit"],
   reactStrictMode: false,
   eslint: {
     ignoreDuringBuilds: true,
@@ -37,6 +39,10 @@ const nextConfig = {
     },
   },
   webpack: (config, { dev, isServer }) => {
+    if (isServer) {
+      config.externals = [...(config.externals || []), "pdfkit", "fontkit"];
+    }
+
     // Optimize for development
     if (dev) {
       config.cache = {
