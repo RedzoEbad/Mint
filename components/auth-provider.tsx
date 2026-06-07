@@ -4,7 +4,8 @@ import type React from "react"
 
 import { createContext, useContext, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useSession, signIn, signOut } from "next-auth/react"
+import { useSession, signIn, signOut, getSession } from "next-auth/react"
+import { getDashboardPathForRole, waitForSession } from "@/lib/auth-redirect"
 
 interface User {
   id: string
@@ -48,11 +49,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
 
       if (result?.ok) {
-        // Wait for session to update, then redirect
-        setTimeout(() => {
-          router.refresh()
-          router.replace("/dashboard")
-        }, 100)
+        const session = await waitForSession(getSession)
+        const target = getDashboardPathForRole(session?.user?.role)
+        // Hard navigation ensures the session cookie is sent to middleware on Vercel
+        if (typeof window !== "undefined") {
+          window.location.assign(target)
+        } else {
+          router.replace(target)
+        }
         return true
       }
 

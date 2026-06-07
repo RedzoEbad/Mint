@@ -4,6 +4,7 @@ import { query } from "@/lib/database"
 import bcrypt from "bcryptjs"
 
 export const authOptions: NextAuthOptions = {
+  trustHost: true,
   providers: [
     CredentialsProvider({
       name: "credentials",

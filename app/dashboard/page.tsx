@@ -3,6 +3,7 @@
 import { useAuth } from "@/components/auth-provider"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
+import { getDashboardPathForRole } from "@/lib/auth-redirect"
 
 export default function DashboardPage() {
   const { user, loading } = useAuth()
@@ -10,19 +11,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!loading && user) {
-      // Redirect based on user role
-      const dashboardRoutes = {
-        super_admin: "/dashboard/admin",
-        admin: "/dashboard/users",
-        receptionist: "/dashboard/candidates",
-        process_agent: "/dashboard/agent",
-        accountant: "/dashboard/accounts",
-      }
-
-      const redirectPath = dashboardRoutes[user.role as keyof typeof dashboardRoutes]
-      if (redirectPath) {
-        router.replace(redirectPath)
-      }
+      router.replace(getDashboardPathForRole(user.role))
     } else if (!loading && !user) {
       // Redirect to login if not authenticated
       router.replace("/login")

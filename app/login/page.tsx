@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Eye, EyeOff, Lock, Mail } from "lucide-react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
+import { getDashboardPathForRole } from "@/lib/auth-redirect"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -25,15 +26,14 @@ export default function LoginPage() {
   // Redirect if already logged in
   useEffect(() => {
     if (!loading && user) {
-      const dashboardRoutes = {
-        super_admin: "/dashboard/admin",
-        admin: "/dashboard/admin",
-        receptionist: "/dashboard/candidates",
-        process_agent: "/dashboard/agent",
-        accountant: "/dashboard/accounts",
-      } as const
-      const target = dashboardRoutes[user.role as keyof typeof dashboardRoutes] || "/dashboard"
-      router.push(target)
+      const redirectParam =
+        typeof window !== "undefined"
+          ? new URLSearchParams(window.location.search).get("redirect")
+          : null
+      const fallback = getDashboardPathForRole(user.role)
+      const target =
+        redirectParam && redirectParam.startsWith("/dashboard") ? redirectParam : fallback
+      router.replace(target)
     }
   }, [user, loading, router])
 
