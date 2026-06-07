@@ -2,9 +2,24 @@ import { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { query } from "@/lib/database"
 import bcrypt from "bcryptjs"
+import { getAuthSecret, getSessionCookieName, shouldUseSecureCookies } from "@/lib/auth-env"
+
+const useSecureCookies = shouldUseSecureCookies()
 
 export const authOptions: NextAuthOptions = {
   trustHost: true,
+  useSecureCookies,
+  cookies: {
+    sessionToken: {
+      name: getSessionCookieName(),
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: useSecureCookies,
+      },
+    },
+  },
   providers: [
     CredentialsProvider({
       name: "credentials",
@@ -84,5 +99,5 @@ export const authOptions: NextAuthOptions = {
     signIn: "/login",
     error: "/unauthorized"
   },
-  secret: process.env.NEXTAUTH_SECRET || "mint-international-secret-key-2024"
+  secret: getAuthSecret(),
 }

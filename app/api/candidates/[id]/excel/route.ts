@@ -1,11 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getToken } from "next-auth/jwt"
 import { query } from "@/lib/database"
+import { getJwtTokenOptions } from "@/lib/auth-env"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
-
-const secret = process.env.NEXTAUTH_SECRET || "mint-international-secret-key-2024"
 
 function csvEscape(value: unknown): string {
   const str = value == null ? "" : String(value)
@@ -22,7 +21,7 @@ function row(cells: unknown[]): string {
 export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params
-    const token = await getToken({ req: request, secret })
+    const token = await getToken(getJwtTokenOptions(request))
     const allowed = ["super_admin", "receptionist"]
     if (!token || !allowed.includes(token.role as string)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })

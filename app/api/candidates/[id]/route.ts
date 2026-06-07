@@ -2,13 +2,12 @@ import { type NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/database"
 import { getToken } from "next-auth/jwt"
 import { computeExperienceTotal } from "@/lib/candidate-experience"
-
-const secret = process.env.NEXTAUTH_SECRET || "mint-international-secret-key-2024"
+import { getJwtTokenOptions } from "@/lib/auth-env"
 
 export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params
-    const token = await getToken({ req: request, secret })
+    const token = await getToken(getJwtTokenOptions(request))
 
     if (!token) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
@@ -64,7 +63,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
 export async function PUT(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params
-    const token = await getToken({ req: request, secret })
+    const token = await getToken(getJwtTokenOptions(request))
 
     if (!token) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })
@@ -208,7 +207,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
 export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params
-    const token = await getToken({ req: request, secret })
+    const token = await getToken(getJwtTokenOptions(request))
 
     if (!token) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })

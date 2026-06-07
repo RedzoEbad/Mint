@@ -1,11 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { getToken } from "next-auth/jwt"
 import { logger, getRequestContext } from "@/lib/logger"
+import { getJwtTokenOptions } from "@/lib/auth-env"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
-
-const secret = process.env.NEXTAUTH_SECRET || "mint-international-secret-key-2024"
 
 let browserPromise: Promise<any> | null = null
 
@@ -48,7 +47,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
 
   try {
     // Authenticate using NextAuth
-    const token = await getToken({ req: request, secret })
+    const token = await getToken(getJwtTokenOptions(request))
     const allowed = ["super_admin", "receptionist"]
     if (!token || !allowed.includes(token.role as string)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
