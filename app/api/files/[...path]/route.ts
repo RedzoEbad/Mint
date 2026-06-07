@@ -3,9 +3,10 @@ import { promises as fs } from "fs"
 import path from "path"
 import { getToken } from "next-auth/jwt"
 import { resolveStoredFilePath } from "@/lib/uploads"
-import { getJwtTokenOptions } from "@/lib/auth-env"
 
 export const runtime = "nodejs"
+
+const secret = process.env.NEXTAUTH_SECRET || "mint-international-secret-key-2024"
 
 const MIME: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -22,7 +23,7 @@ export async function GET(
   context: { params: Promise<{ path: string[] }> },
 ) {
   try {
-    const token = await getToken(getJwtTokenOptions(request))
+    const token = await getToken({ req: request, secret })
     const allowed = ["super_admin", "receptionist", "process_agent", "admin", "accountant"]
     if (!token || !allowed.includes(token.role as string)) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })

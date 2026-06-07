@@ -1,11 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/database"
 import { getToken } from "next-auth/jwt"
-import { getJwtTokenOptions } from "@/lib/auth-env"
+
+const secret = process.env.NEXTAUTH_SECRET || "mint-international-secret-key-2024"
 
 export async function GET(request: NextRequest) {
   try {
-    const token = await getToken(getJwtTokenOptions(request))
+    const token = await getToken({ req: request, secret })
 
     if (!token) {
       return NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 })

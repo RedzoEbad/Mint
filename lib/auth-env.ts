@@ -26,18 +26,10 @@ export function shouldUseSecureCookies(request?: NextRequest): boolean {
   return false
 }
 
-export function getSessionCookieName(request?: NextRequest): string {
-  return shouldUseSecureCookies(request)
-    ? "__Secure-next-auth.session-token"
-    : "next-auth.session-token"
-}
-
 export function getJwtTokenOptions(request: NextRequest) {
-  const secureCookie = shouldUseSecureCookies(request)
   return {
     req: request,
     secret: getAuthSecret(),
-    secureCookie,
-    cookieName: getSessionCookieName(request),
+    secureCookie: shouldUseSecureCookies(request),
   }
 }
