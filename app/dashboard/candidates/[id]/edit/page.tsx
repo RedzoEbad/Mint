@@ -27,7 +27,7 @@ import { useToast } from "@/hooks/use-toast"
 import { computeExperienceTotal, sanitizeExperienceInput } from "@/lib/candidate-experience"
 import { validateCandidateForm, validateDocOrImageFile } from "@/lib/candidate-form-validation"
 import { DocUploadField } from "@/components/candidate-doc-upload"
-import { normalizeStoredFileUrl } from "@/lib/uploads"
+import { normalizeStoredFileUrl } from "@/lib/file-urls"
 
 export default function EditCandidatePage() {
   const { id } = useParams<{ id: string }>()

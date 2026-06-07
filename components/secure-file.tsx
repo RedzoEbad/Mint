@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { normalizeStoredFileUrl } from "@/lib/uploads"
+import { normalizeStoredFileUrl } from "@/lib/file-urls"
 
 export function SecureImage({
   src,
