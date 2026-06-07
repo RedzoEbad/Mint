@@ -1,8 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { promises as fs } from "fs"
-import path from "path"
 import { getToken } from "next-auth/jwt"
-import { resolveStoredFilePath } from "@/lib/uploads"
+import { readStoredFile } from "@/lib/uploads"
 
 export const runtime = "nodejs"
 
@@ -35,18 +33,14 @@ export async function GET(
     }
 
     const fileUrl = `/api/files/${segments.join("/")}`
-    const filepath = await resolveStoredFilePath(fileUrl)
-    if (!filepath) {
+    const file = await readStoredFile(fileUrl)
+    if (!file) {
       return NextResponse.json({ success: false, message: "File not found" }, { status: 404 })
     }
 
-    const buffer = await fs.readFile(filepath)
-    const ext = path.extname(filepath).toLowerCase()
-    const contentType = MIME[ext] || "application/octet-stream"
-
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(file.buffer), {
       headers: {
-        "Content-Type": contentType,
+        "Content-Type": file.contentType || "application/octet-stream",
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
       },
