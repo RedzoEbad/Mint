@@ -4,6 +4,9 @@ type PdfDoc = InstanceType<typeof import("pdfkit")>
 const MINT_BLUE = "#1a4b8c"
 const LINE_BLUE = "#1a4b8c"
 const BLACK = "#000000"
+const ROW_HEIGHT = 13
+const LABEL_FONT_SIZE = 7.5
+const VALUE_FONT_SIZE = 7.5
 
 function formatDate(value?: string | Date | null): string {
   if (!value) return ""
@@ -72,73 +75,164 @@ async function renderPdfBuffer(doc: PdfDoc): Promise<Buffer> {
   })
 }
 
-function drawMintHeader(doc: PdfDoc, logoBuffer: Buffer | null | undefined, left: number, pageWidth: number, startY: number): number {
-  const colWidth = pageWidth / 3
+function measureText(doc: PdfDoc, text: string, font: string, size: number): number {
+  doc.font(font).fontSize(size)
+  return doc.widthOfString(text)
+}
+
+function drawClippedText(
+  doc: PdfDoc,
+  text: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  options: { font?: string; size?: number; align?: "left" | "center" | "right" } = {},
+) {
+  if (!text) return
+  const font = options.font || "Helvetica"
+  const size = options.size || VALUE_FONT_SIZE
+  doc.save()
+  doc.rect(x, y, width, height).clip()
+  doc.font(font).fontSize(size).fillColor(BLACK).text(text, x, y, {
+    width,
+    height,
+    ellipsis: true,
+    lineBreak: true,
+    align: options.align || "left",
+  })
+  doc.restore()
+}
+
+function drawClippedImage(doc: PdfDoc, buffer: Buffer, x: number, y: number, width: number, height: number) {
+  doc.save()
+  doc.rect(x, y, width, height).clip()
+  try {
+    doc.image(buffer, x, y, { fit: [width, height], align: "center", valign: "center" })
+  } catch {
+    // ignore broken image
+  }
+  doc.restore()
+}
+
+function drawReferenceHeader(
+  doc: PdfDoc,
+  headerBuffer: Buffer,
+  isFormB: boolean,
+  left: number,
+  pageWidth: number,
+  startY: number,
+): number {
+  const headerHeight = 92
+  const headerFraction = 0.205
+  const imageWidth = pageWidth * 2
+  const imageHeight = headerHeight / headerFraction
+  const imageX = isFormB ? left - pageWidth : left
+
+  doc.save()
+  doc.rect(left, startY, pageWidth, headerHeight).clip()
+  try {
+    doc.image(headerBuffer, imageX, startY, { width: imageWidth, height: imageHeight })
+  } catch {
+    doc.restore()
+    return drawMintHeader(doc, null, left, pageWidth, startY)
+  }
+  doc.restore()
+
+  doc.font("Helvetica").fontSize(6.5).fillColor(BLACK).text("0001", left, startY + headerHeight + 1)
+  return startY + headerHeight + 8
+}
+
+function drawMintHeader(
+  doc: PdfDoc,
+  logoBuffer: Buffer | null | undefined,
+  left: number,
+  pageWidth: number,
+  startY: number,
+): number {
+  const col1W = pageWidth * 0.36
+  const col2W = pageWidth * 0.28
+  const col3W = pageWidth * 0.36
+  const col2X = left + col1W
+  const col3X = left + col1W + col2W
   let y = startY
 
-  doc.font("Helvetica-Bold").fontSize(15).fillColor(MINT_BLUE)
-  doc.text("MINT INTERNATIONAL", left, y, { width: colWidth })
+  doc.font("Helvetica-Bold").fontSize(13).fillColor(MINT_BLUE)
+  drawClippedText(doc, "MINT INTERNATIONAL", left, y, col1W - 4, 14, { font: "Helvetica-Bold", size: 13 })
 
+  const logoSize = 48
+  const logoX = col2X + (col2W - logoSize) / 2
   if (logoBuffer) {
     try {
-      doc.image(logoBuffer, left + colWidth + colWidth / 2 - 28, y - 4, { fit: [56, 56], align: "center" })
+      drawClippedImage(doc, logoBuffer, logoX, y, logoSize, logoSize)
+      doc.circle(logoX + logoSize / 2, y + logoSize / 2, logoSize / 2)
+        .lineWidth(0.8)
+        .strokeColor(MINT_BLUE)
+        .stroke()
     } catch {
-      drawLogoPlaceholder(doc, left + colWidth + colWidth / 2 - 22, y)
+      drawLogoPlaceholder(doc, logoX, y, logoSize)
     }
   } else {
-    drawLogoPlaceholder(doc, left + colWidth + colWidth / 2 - 22, y)
+    drawLogoPlaceholder(doc, logoX, y, logoSize)
   }
 
-  doc.font("Helvetica-Bold").fontSize(11).fillColor(MINT_BLUE)
-  doc.text("مينت انترناشيونال", left + colWidth * 2, y, { width: colWidth, align: "right" })
+  doc.font("Helvetica-Bold").fontSize(10).fillColor(MINT_BLUE)
+  drawClippedText(doc, "مينت انترناشيونال", col3X, y + 2, col3W, 12, {
+    font: "Helvetica-Bold",
+    size: 10,
+    align: "right",
+  })
 
-  y += 18
-  const boxHeight = 22
-  doc.rect(left, y, colWidth - 8, boxHeight).lineWidth(0.5).strokeColor(BLACK).stroke()
-  doc.font("Helvetica").fontSize(6.5).fillColor(BLACK)
-  doc.text("Overseas Employment Promoter", left + 4, y + 4, { width: colWidth - 12 })
-  doc.text("Licence No. 1689", left + 4, y + 12, { width: colWidth - 12 })
+  y += 16
+  const boxHeight = 24
+  doc.rect(left, y, col1W - 6, boxHeight).lineWidth(0.5).strokeColor(BLACK).stroke()
+  doc.font("Helvetica").fontSize(6).fillColor(BLACK)
+  drawClippedText(doc, "Overseas Employment Promoter", left + 3, y + 3, col1W - 12, 8, { size: 6 })
+  drawClippedText(doc, "Licence No. 1689", left + 3, y + 12, col1W - 12, 8, { size: 6 })
 
-  doc.rect(left + colWidth * 2 + 8, y, colWidth - 8, boxHeight).lineWidth(0.5).strokeColor(BLACK).stroke()
-  doc.font("Helvetica").fontSize(6.5).fillColor(BLACK)
-  doc.text("وكيل توظيف خارجي", left + colWidth * 2 + 12, y + 4, { width: colWidth - 16, align: "right" })
-  doc.text("رقم الترخيص ١٦٨٩", left + colWidth * 2 + 12, y + 12, { width: colWidth - 16, align: "right" })
+  doc.rect(col3X + 6, y, col3W - 6, boxHeight).lineWidth(0.5).strokeColor(BLACK).stroke()
+  drawClippedText(doc, "وكيل توظيف خارجي", col3X + 10, y + 3, col3W - 16, 8, { size: 6, align: "right" })
+  drawClippedText(doc, "رقم الترخيص ١٦٨٩", col3X + 10, y + 12, col3W - 16, 8, { size: 6, align: "right" })
 
-  y += boxHeight + 8
-  const branchY = y
+  y += boxHeight + 6
+  const halfW = pageWidth / 2 - 4
 
-  doc.font("Helvetica-Bold").fontSize(8).fillColor(MINT_BLUE)
-  doc.text("Rawalpindi / Islamabad", left, branchY, { width: pageWidth / 2 - 6 })
-  doc.text("Karachi", left + pageWidth / 2 + 6, branchY, { width: pageWidth / 2 - 6 })
+  doc.font("Helvetica-Bold").fontSize(7.5).fillColor(MINT_BLUE)
+  drawClippedText(doc, "Rawalpindi / Islamabad", left, y, halfW, 9, { font: "Helvetica-Bold", size: 7.5 })
+  drawClippedText(doc, "Karachi", left + halfW + 8, y, halfW, 9, { font: "Helvetica-Bold", size: 7.5 })
 
-  y += 11
-  doc.font("Helvetica").fontSize(6.5).fillColor(BLACK)
-  doc.text(
+  y += 10
+  doc.font("Helvetica").fontSize(5.8).fillColor(BLACK)
+  drawClippedText(
+    doc,
     "Office No. 22, 3rd Floor, Majeed Plaza, Bank Road, Saddar, Rawalpindi.\nTel: +92-51-5700075\nE-mail: mint1689@gmail.com\nE-mail: info@mintinternational.org",
     left,
     y,
-    { width: pageWidth / 2 - 6, lineGap: 1 },
+    halfW,
+    34,
+    { size: 5.8 },
   )
-  doc.text(
+  drawClippedText(
+    doc,
     "Suite # 18/A, Faisal Market, Commercial Area, Shahra-e-Faisal, Malir Halt, Karachi.\nPh: 0092-21-34602406-410\nWebsite: www.mintinternational.org",
-    left + pageWidth / 2 + 6,
+    left + halfW + 8,
     y,
-    { width: pageWidth / 2 - 6, lineGap: 1 },
+    halfW,
+    34,
+    { size: 5.8 },
   )
 
-  y += 38
-  doc.font("Helvetica").fontSize(7).fillColor(BLACK).text("0001", left, y)
+  y += 36
+  doc.font("Helvetica").fontSize(6.5).fillColor(BLACK).text("0001", left, y)
 
-  return y + 10
+  return y + 8
 }
 
-function drawLogoPlaceholder(doc: PdfDoc, x: number, y: number) {
-  doc.circle(x + 22, y + 22, 22).lineWidth(0.8).strokeColor(MINT_BLUE).stroke()
-  doc.font("Helvetica-Bold").fontSize(10).fillColor(MINT_BLUE).text("MI", x + 14, y + 16)
-}
-
-function measureLabelWidth(doc: PdfDoc, label: string): number {
-  return doc.widthOfString(label, { characterSpacing: 0 })
+function drawLogoPlaceholder(doc: PdfDoc, x: number, y: number, size: number) {
+  const radius = size / 2
+  doc.circle(x + radius, y + radius, radius).lineWidth(0.8).strokeColor(MINT_BLUE).stroke()
+  doc.font("Helvetica-Bold").fontSize(9).fillColor(MINT_BLUE)
+  drawClippedText(doc, "MI", x + radius - 8, y + radius - 5, 16, 10, { font: "Helvetica-Bold", size: 9, align: "center" })
 }
 
 function drawLineField(
@@ -148,43 +242,43 @@ function drawLineField(
   x: number,
   y: number,
   width: number,
-  labelWidth = 0,
+  fixedLabelWidth?: number,
 ): number {
-  doc.font("Helvetica-Bold").fontSize(8).fillColor(BLACK).text(label, x, y, { lineBreak: false })
-  const lw = labelWidth || measureLabelWidth(doc, label) + 4
-  const lineStart = x + lw
+  doc.font("Helvetica-Bold").fontSize(LABEL_FONT_SIZE).fillColor(BLACK)
+  const labelW = fixedLabelWidth ?? Math.min(measureText(doc, label, "Helvetica-Bold", LABEL_FONT_SIZE) + 3, width * 0.42)
+  drawClippedText(doc, label, x, y + 1, labelW, 9, { font: "Helvetica-Bold", size: LABEL_FONT_SIZE })
+
+  const lineStart = x + labelW
+  const lineEnd = x + width
   const lineY = y + 9
   doc
     .moveTo(lineStart, lineY)
-    .lineTo(x + width, lineY)
-    .lineWidth(0.6)
+    .lineTo(lineEnd, lineY)
+    .lineWidth(0.5)
     .strokeColor(LINE_BLUE)
     .stroke()
 
-  if (value) {
-    doc.font("Helvetica").fontSize(8).fillColor(BLACK).text(value, lineStart + 2, y + 1, {
-      width: x + width - lineStart - 4,
-      height: 10,
-      ellipsis: true,
-      lineBreak: false,
-    })
-  }
+  drawClippedText(doc, value, lineStart + 2, y, lineEnd - lineStart - 4, 9, { size: VALUE_FONT_SIZE })
 
-  return y + 14
+  return y + ROW_HEIGHT
 }
 
 function drawLineFieldPair(
   doc: PdfDoc,
-  left: { label: string; value: string },
-  right: { label: string; value: string },
+  left: { label: string; value: string; labelWidth?: number },
+  right: { label: string; value: string; labelWidth?: number },
   x: number,
   y: number,
   totalWidth: number,
+  split: [number, number] = [0.5, 0.5],
 ): number {
-  const half = totalWidth / 2 - 4
-  drawLineField(doc, left.label, left.value, x, y, half)
-  drawLineField(doc, right.label, right.value, x + half + 8, y, half)
-  return y + 14
+  const gap = 8
+  const available = totalWidth - gap
+  const leftW = available * split[0]
+  const rightW = available * split[1]
+  drawLineField(doc, left.label, left.value, x, y, leftW, left.labelWidth)
+  drawLineField(doc, right.label, right.value, x + leftW + gap, y, rightW, right.labelWidth)
+  return y + ROW_HEIGHT
 }
 
 function drawPhotoBox(
@@ -197,12 +291,7 @@ function drawPhotoBox(
 ) {
   doc.rect(x, y, width, height).lineWidth(1).strokeColor(BLACK).stroke()
   if (profileImageBuffer) {
-    try {
-      doc.image(profileImageBuffer, x + 2, y + 2, { fit: [width - 4, height - 4] })
-      return
-    } catch {
-      // fall through
-    }
+    drawClippedImage(doc, profileImageBuffer, x + 1, y + 1, width - 2, height - 2)
   }
 }
 
@@ -213,34 +302,36 @@ function drawExperienceTable(
   y: number,
   width: number,
 ): number {
-  doc.font("Helvetica-Bold").fontSize(8).fillColor(BLACK).text("EXPERIENCE DETAILS", x, y, {
-    width,
-    align: "center",
-  })
-  y += 12
+  doc.font("Helvetica-Bold").fontSize(7.5).fillColor(BLACK)
+  drawClippedText(doc, "EXPERIENCE DETAILS", x, y, width, 9, { font: "Helvetica-Bold", size: 7.5, align: "center" })
+  y += 11
 
-  const colSr = 32
-  const colPeriod = 130
-  const colTrade = 90
+  const colSr = 28
+  const colPeriod = 118
+  const colTrade = 78
   const colCompany = width - colSr - colPeriod - colTrade
-  const rowHeight = 16
-  const headerHeight = 14
+  const rowHeight = 15
+  const headerHeight = 13
   const tableHeight = headerHeight + rows.length * rowHeight
 
-  doc.rect(x, y, width, tableHeight).lineWidth(0.8).strokeColor(BLACK).stroke()
+  doc.rect(x, y, width, tableHeight).lineWidth(0.7).strokeColor(BLACK).stroke()
 
   let cx = x
   const headers = [
     { label: "SR.NO", w: colSr },
     { label: "COMPANY", w: colCompany },
-    { label: "PERIOD FROM-UPTO", w: colPeriod },
+    { label: "PERIOD\nFROM-UPTO", w: colPeriod },
     { label: "TRADE", w: colTrade },
   ]
 
-  doc.font("Helvetica-Bold").fontSize(6.5).fillColor(BLACK)
+  doc.font("Helvetica-Bold").fontSize(5.8).fillColor(BLACK)
   for (const header of headers) {
     doc.rect(cx, y, header.w, headerHeight).stroke()
-    doc.text(header.label, cx + 2, y + 3, { width: header.w - 4, align: "center" })
+    drawClippedText(doc, header.label, cx + 2, y + 2, header.w - 4, headerHeight - 2, {
+      font: "Helvetica-Bold",
+      size: 5.8,
+      align: "center",
+    })
     cx += header.w
   }
 
@@ -253,15 +344,14 @@ function drawExperienceTable(
       { text: row.period, w: colPeriod },
       { text: row.trade, w: colTrade },
     ]
-    doc.font("Helvetica").fontSize(7).fillColor(BLACK)
     for (const cell of cells) {
       doc.rect(cx, rowY, cell.w, rowHeight).stroke()
-      doc.text(cell.text, cx + 3, rowY + 4, { width: cell.w - 6, height: rowHeight - 4, ellipsis: true })
+      drawClippedText(doc, cell.text, cx + 2, rowY + 3, cell.w - 4, rowHeight - 4, { size: 6.5 })
       cx += cell.w
     }
   })
 
-  return y + tableHeight + 8
+  return y + tableHeight + 6
 }
 
 function drawExperienceTotalSection(
@@ -272,128 +362,153 @@ function drawExperienceTotalSection(
   y: number,
   width: number,
 ): number {
-  doc.font("Helvetica-Bold").fontSize(8).fillColor(BLACK).text("EXPERIENCE TOTAL (YEARS)", x, y, { lineBreak: false })
-  const labelW = measureLabelWidth(doc, "EXPERIENCE TOTAL (YEARS)") + 6
+  const label = "EXPERIENCE TOTAL (YEARS)"
+  doc.font("Helvetica-Bold").fontSize(LABEL_FONT_SIZE).fillColor(BLACK)
+  const labelW = measureText(doc, label, "Helvetica-Bold", LABEL_FONT_SIZE) + 4
+  drawClippedText(doc, label, x, y + 1, labelW, 9, { font: "Helvetica-Bold", size: LABEL_FONT_SIZE })
+
   const lineStart = x + labelW
   doc
     .moveTo(lineStart, y + 9)
     .lineTo(x + width, y + 9)
-    .lineWidth(0.6)
+    .lineWidth(0.5)
     .strokeColor(LINE_BLUE)
     .stroke()
-  if (total) {
-    doc.font("Helvetica").fontSize(8).fillColor(BLACK).text(total, lineStart + 2, y + 1)
-  }
+  drawClippedText(doc, total, lineStart + 2, y, width - labelW - 4, 9, { size: VALUE_FONT_SIZE })
 
-  y += 14
+  y += ROW_HEIGHT
   for (let i = 0; i < extraLines; i++) {
     doc
       .moveTo(x, y + 9)
       .lineTo(x + width, y + 9)
-      .lineWidth(0.6)
+      .lineWidth(0.5)
       .strokeColor(LINE_BLUE)
       .stroke()
-    y += 14
+    y += ROW_HEIGHT
   }
 
-  return y + 4
+  return y + 2
+}
+
+function ensureSpace(doc: PdfDoc, y: number, needed: number): number {
+  const bottom = doc.page.height - doc.page.margins.bottom
+  if (y + needed > bottom) {
+    doc.addPage()
+    return doc.page.margins.top
+  }
+  return y
 }
 
 export async function generateCandidatePdf(options: {
   candidate: CandidateRecord
   type: "client" | "own"
   logoBuffer?: Buffer | null
+  headerImageBuffer?: Buffer | null
   profileImageBuffer?: Buffer | null
 }): Promise<Buffer> {
-  const { candidate: c, type, logoBuffer, profileImageBuffer } = options
+  const { candidate: c, type, logoBuffer, headerImageBuffer, profileImageBuffer } = options
   const isFormB = type === "client"
   const { default: PDFDocument } = await import("pdfkit")
-  const doc = new PDFDocument({ size: "A4", margin: 24 })
+  const doc = new PDFDocument({ size: "A4", margin: 30 })
   const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right
   const left = doc.page.margins.left
-  let y = drawMintHeader(doc, logoBuffer, left, pageWidth, doc.page.margins.top)
+  let y =
+    headerImageBuffer != null
+      ? drawReferenceHeader(doc, headerImageBuffer, isFormB, left, pageWidth, doc.page.margins.top)
+      : drawMintHeader(doc, logoBuffer, left, pageWidth, doc.page.margins.top)
 
-  doc.font("Helvetica-Bold").fontSize(11).fillColor(BLACK)
-  doc.text(isFormB ? "FORM-B" : "FORM-A", left, y, { width: pageWidth, align: "center" })
-  y += 18
+  doc.font("Helvetica-Bold").fontSize(10).fillColor(BLACK)
+  drawClippedText(doc, isFormB ? "FORM-B" : "FORM-A", left, y, pageWidth, 11, {
+    font: "Helvetica-Bold",
+    size: 10,
+    align: "center",
+  })
+  y += 14
 
-  const photoWidth = 88
-  const photoHeight = 108
+  const photoWidth = 78
+  const photoHeight = isFormB ? 115 : 100
+  const photoGap = 10
   const photoX = left + pageWidth - photoWidth
   const photoY = y
-  const fieldsWidth = pageWidth - photoWidth - 8
+  const sideFieldWidth = pageWidth - photoWidth - photoGap
 
   drawPhotoBox(doc, photoX, photoY, photoWidth, photoHeight, profileImageBuffer)
 
-  let fieldY = y + 2
-  fieldY = drawLineField(doc, "Post Applied For:", c.post_applied_for || "", left, fieldY, fieldsWidth)
-  fieldY = drawLineField(doc, "Referred By:", c.referred_by || "", left, fieldY, fieldsWidth)
-  fieldY = drawLineField(doc, "Full Name:", getFullName(c), left, fieldY, fieldsWidth)
-  fieldY = drawLineField(doc, "Father's Name:", c.father_name || "", left, fieldY, fieldsWidth)
+  let fieldY = y
+  fieldY = drawLineField(doc, "Post Applied For:", c.post_applied_for || "", left, fieldY, sideFieldWidth, 72)
+  fieldY = drawLineField(doc, "Referred By:", c.referred_by || "", left, fieldY, sideFieldWidth, 72)
+  fieldY = drawLineField(doc, "Full Name:", getFullName(c), left, fieldY, sideFieldWidth, 72)
+  fieldY = drawLineField(doc, "Father's Name:", c.father_name || "", left, fieldY, sideFieldWidth, 72)
 
   const religion = c.religion || (isFormB ? "" : "ISLAM")
   fieldY = drawLineFieldPair(
     doc,
-    { label: "Marital Status:", value: c.marital_status || "" },
-    { label: "Religion:", value: religion },
+    { label: "Marital Status:", value: c.marital_status || "", labelWidth: 58 },
+    { label: "Religion:", value: religion, labelWidth: 42 },
     left,
     fieldY,
-    fieldsWidth,
+    sideFieldWidth,
   )
   fieldY = drawLineFieldPair(
     doc,
-    { label: "Date of Birth:", value: formatDate(c.date_of_birth) },
-    { label: "Place of Issue:", value: c.place_of_issue || "" },
+    { label: "Date of Birth:", value: formatDate(c.date_of_birth), labelWidth: 58 },
+    { label: "Place of Issue:", value: c.place_of_issue || "", labelWidth: 58 },
     left,
     fieldY,
-    fieldsWidth,
+    sideFieldWidth,
   )
   fieldY = drawLineFieldPair(
     doc,
-    { label: "Date of Issue:", value: formatDate(c.date_of_issue) },
-    { label: "Date of Expiry:", value: formatDate(c.date_of_expiry) },
+    { label: "Date of Issue:", value: formatDate(c.date_of_issue), labelWidth: 58 },
+    { label: "Date of Expiry:", value: formatDate(c.date_of_expiry), labelWidth: 58 },
     left,
     fieldY,
-    fieldsWidth,
+    sideFieldWidth,
   )
 
   if (isFormB) {
     fieldY = drawLineFieldPair(
       doc,
-      { label: "Passport No:", value: c.passport_no || "" },
-      { label: "CNIC No:", value: c.citizenship_no || "" },
+      { label: "Passport No:", value: c.passport_no || "", labelWidth: 58 },
+      { label: "CNIC No:", value: c.citizenship_no || "", labelWidth: 42 },
       left,
       fieldY,
-      fieldsWidth,
+      sideFieldWidth,
     )
     fieldY = drawLineFieldPair(
       doc,
-      { label: "Mobile No (1):", value: c.mobile_no_1 || "" },
-      { label: "Mobile No (2):", value: c.mobile_no_2 || "" },
+      { label: "Mobile No (1):", value: c.mobile_no_1 || "", labelWidth: 58 },
+      { label: "Mobile No (2):", value: c.mobile_no_2 || "", labelWidth: 58 },
       left,
       fieldY,
-      fieldsWidth,
+      sideFieldWidth,
     )
   } else {
-    fieldY = drawLineField(doc, "Passport No:", c.passport_no || "", left, fieldY, fieldsWidth)
+    fieldY = drawLineField(doc, "Passport No:", c.passport_no || "", left, fieldY, sideFieldWidth, 72)
   }
 
-  fieldY = drawLineField(doc, "Academic Qualifications:", getAcademicQualifications(c), left, fieldY, pageWidth)
-  fieldY = drawLineField(doc, "Technical Qualifications:", getTechnicalQualifications(c), left, fieldY, pageWidth)
-  fieldY = drawLineField(doc, "Languages Known:", getLanguages(c), left, fieldY, pageWidth)
+  y = Math.max(fieldY, photoY + photoHeight + 8)
 
+  y = drawLineField(doc, "Academic Qualifications:", getAcademicQualifications(c), left, y, pageWidth, 108)
+  y = drawLineField(doc, "Technical Qualifications:", getTechnicalQualifications(c), left, y, pageWidth, 108)
+  y = drawLineField(doc, "Languages Known:", getLanguages(c), left, y, pageWidth, 88)
+
+  y = ensureSpace(doc, y, 80)
   const experienceTotal = String(c.experience_total ?? "")
-  fieldY = drawExperienceTotalSection(doc, experienceTotal, isFormB ? 2 : 3, left, fieldY + 4, pageWidth)
-  fieldY = drawExperienceTable(doc, getExperienceRows(c), left, fieldY, pageWidth)
+  y = drawExperienceTotalSection(doc, experienceTotal, isFormB ? 2 : 3, left, y + 2, pageWidth)
+  y = ensureSpace(doc, y, 50)
+  y = drawExperienceTable(doc, getExperienceRows(c), left, y, pageWidth)
 
-  fieldY = drawLineField(doc, "Remarks:", c.remarks || "", left, fieldY, pageWidth)
+  y = ensureSpace(doc, y, 40)
+  y = drawLineField(doc, "Remarks:", c.remarks || "", left, y, pageWidth, 52)
   drawLineFieldPair(
     doc,
-    { label: "Date:", value: formatDate(c.created_at) },
-    { label: "Candidates Signature:", value: "" },
+    { label: "Date:", value: formatDate(c.created_at), labelWidth: 30 },
+    { label: "Candidates Signature:", value: "", labelWidth: 92 },
     left,
-    fieldY,
+    y,
     pageWidth,
+    [0.32, 0.68],
   )
 
   return renderPdfBuffer(doc)

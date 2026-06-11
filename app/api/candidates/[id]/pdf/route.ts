@@ -36,10 +36,16 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     }
 
     let logoBuffer: Buffer | null = null
+    let headerImageBuffer: Buffer | null = null
     try {
       logoBuffer = await fs.readFile(path.join(process.cwd(), "public", "images", "mint-logo.png"))
     } catch {
       logger.warn("PDF: logo not found", ctx)
+    }
+    try {
+      headerImageBuffer = await fs.readFile(path.join(process.cwd(), "public", "images", "mint-form-reference.png"))
+    } catch {
+      logger.warn("PDF: form header reference not found", ctx)
     }
 
     let profileImageBuffer: Buffer | null = null
@@ -52,6 +58,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       candidate,
       type,
       logoBuffer,
+      headerImageBuffer,
       profileImageBuffer,
     })
 
