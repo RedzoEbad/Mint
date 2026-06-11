@@ -26,7 +26,7 @@ import { PageLoader } from "@/components/ui/page-loader"
 import { useToast } from "@/hooks/use-toast"
 import { computeExperienceTotal, sanitizeExperienceInput } from "@/lib/candidate-experience"
 import { validateCandidateForm, validateDocOrImageFile } from "@/lib/candidate-form-validation"
-import { DocUploadField } from "@/components/candidate-doc-upload"
+import { DocUploadField, FieldLabel } from "@/components/candidate-doc-upload"
 import { normalizeStoredFileUrl } from "@/lib/file-urls"
 
 export default function EditCandidatePage() {
@@ -62,9 +62,8 @@ export default function EditCandidatePage() {
     referred_by: "",
     cnic_front_image: "",
     cnic_back_image: "",
+    passport_image: "",
     matric_certificate: "",
-    intermediate_certificate: "",
-    diploma_certificate: "",
     experience_letter: "",
     profile_image: "",
     cv_file: "",
@@ -111,9 +110,8 @@ export default function EditCandidatePage() {
                 certificate_file: tq.certificate_file || "",
                 certificateFileName: tq.certificate_file ? tq.certificate_file.split("/").pop() : "",
               })))
-            }
-            if (Array.isArray(c.technical_qualification_details) && c.technical_qualification_details.length === 0) {
-              setTechnicalQuals([{ qualification_name: "", institution: "", year: "", certificate_file: "", certificateFileName: "" }])
+            } else {
+              setTechnicalQuals([])
             }
           }
         } catch (e) {
@@ -273,11 +271,10 @@ export default function EditCandidatePage() {
       })),
       {
         profileImage: Boolean(form.profile_image),
+        passportImage: Boolean(form.passport_image),
         cnicFront: Boolean(form.cnic_front_image),
         cnicBack: Boolean(form.cnic_back_image),
-        matricCertificate: Boolean(form.matric_certificate),
-        intermediateCertificate: Boolean(form.intermediate_certificate),
-        diplomaCertificate: Boolean(form.diploma_certificate),
+        educationalDocument: Boolean(form.matric_certificate),
         experienceLetter: Boolean(form.experience_letter),
         cv: Boolean(form.cv_file),
       },
@@ -342,6 +339,22 @@ export default function EditCandidatePage() {
           </Button>
         </div>
 
+        <Card className="ring-1 ring-blue-100">
+          <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+            <CardTitle>Application Details</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2 pt-6">
+            <div className="space-y-1">
+              <Label className="text-xs text-gray-500">Post Applied For</Label>
+              <Input placeholder="Position" value={form.post_applied_for} onChange={(e) => setField("post_applied_for", e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-gray-500">Referred By</Label>
+              <Input placeholder="Referrer" value={form.referred_by} onChange={(e) => setField("referred_by", e.target.value)} />
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Personal Information */}
         <Card>
           <CardHeader>
@@ -383,21 +396,21 @@ export default function EditCandidatePage() {
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs text-gray-500">Sex</Label>
+              <Label className="text-xs text-gray-500">Gender</Label>
               <Select value={form.sex} onValueChange={(v) => setField("sex", v)}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select sex" />
+                  <SelectValue placeholder="Select gender" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="M">M (Male)</SelectItem>
-                  <SelectItem value="F">F (Female)</SelectItem>
+                  <SelectItem value="M">Male</SelectItem>
+                  <SelectItem value="F">Female</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs text-gray-500">Citizenship Number</Label>
-              <Input placeholder="Citizenship number" value={form.citizenship_no} onChange={(e) => setField("citizenship_no", e.target.value)} className="font-mono" />
+              <Label className="text-xs text-gray-500">CNIC</Label>
+              <Input placeholder="CNIC number" value={form.citizenship_no} onChange={(e) => setField("citizenship_no", e.target.value)} className="font-mono" />
             </div>
 
             {/* Date of Birth */}
@@ -457,14 +470,21 @@ export default function EditCandidatePage() {
             </div>
             <div className="md:col-span-2 grid gap-4 sm:grid-cols-2 border-t pt-4">
               <DocUploadField
+                id="edit-passport-picture"
+                label="Passport Picture"
+                accept="image/*"
+                fileName={form.passport_image ? form.passport_image.split("/").pop() : ""}
+                onFileChange={(e) => handleDocFieldUpload(e, "passport_image", "passport-images")}
+              />
+              <DocUploadField
                 id="edit-cnic-front"
-                label="CNIC Front Image"
+                label="CNIC Front"
                 fileName={form.cnic_front_image ? form.cnic_front_image.split("/").pop() : ""}
                 onFileChange={(e) => handleDocFieldUpload(e, "cnic_front_image", "cnic-images")}
               />
               <DocUploadField
                 id="edit-cnic-back"
-                label="CNIC Back Image"
+                label="CNIC Back"
                 fileName={form.cnic_back_image ? form.cnic_back_image.split("/").pop() : ""}
                 onFileChange={(e) => handleDocFieldUpload(e, "cnic_back_image", "cnic-images")}
               />
@@ -500,34 +520,26 @@ export default function EditCandidatePage() {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-3 border-t pt-4">
-              <DocUploadField
-                id="edit-matric"
-                label="Matric Certificate"
-                fileName={form.matric_certificate ? form.matric_certificate.split("/").pop() : ""}
-                onFileChange={(e) => handleDocFieldUpload(e, "matric_certificate", "certificates")}
-              />
-              <DocUploadField
-                id="edit-intermediate"
-                label="Intermediate Certificate"
-                fileName={form.intermediate_certificate ? form.intermediate_certificate.split("/").pop() : ""}
-                onFileChange={(e) => handleDocFieldUpload(e, "intermediate_certificate", "certificates")}
-              />
-              <DocUploadField
-                id="edit-diploma-cert"
-                label="Diploma Certificate"
-                fileName={form.diploma_certificate ? form.diploma_certificate.split("/").pop() : ""}
-                onFileChange={(e) => handleDocFieldUpload(e, "diploma_certificate", "certificates")}
-              />
-            </div>
+            <DocUploadField
+              id="edit-educational-doc"
+              label="Upload Educational Document"
+              fileName={form.matric_certificate ? form.matric_certificate.split("/").pop() : ""}
+              onFileChange={(e) => handleDocFieldUpload(e, "matric_certificate", "certificates")}
+            />
 
             <div className="border-t pt-4 space-y-3">
               <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium">Technical Qualifications</Label>
+                <div>
+                  <FieldLabel>Technical Qualifications</FieldLabel>
+                  <p className="text-xs text-gray-500 mt-1">Optional</p>
+                </div>
                 <Button type="button" variant="outline" size="sm" onClick={addTechnicalQual}>
                   <Plus className="h-4 w-4 mr-1" /> Add
                 </Button>
               </div>
+              {technicalQuals.length === 0 ? (
+                <p className="text-sm text-gray-500 border border-dashed rounded-lg p-4 text-center">No technical qualifications added.</p>
+              ) : null}
               {technicalQuals.map((tq, index) => (
                 <div key={index} className="p-3 border rounded-lg space-y-2 bg-gray-50">
                   <div className="flex justify-between">
@@ -544,7 +556,7 @@ export default function EditCandidatePage() {
                   <div className="flex items-center gap-2">
                     <Label htmlFor={`edit-tech-cert-${index}`} className="cursor-pointer text-sm text-blue-600 border border-blue-200 rounded px-3 py-1.5 bg-white">
                       <Upload className="h-3.5 w-3.5 inline mr-1" />
-                      {tq.certificateFileName || "Attach Certification"}
+                      {tq.certificateFileName || "Attach certificate (optional)"}
                     </Label>
                     <input id={`edit-tech-cert-${index}`} type="file" accept=".pdf,image/*" onChange={(e) => handleTechQualCertChange(index, e)} className="hidden" />
                     {tq.certificate_file && (
@@ -581,17 +593,13 @@ export default function EditCandidatePage() {
           </CardContent>
         </Card>
 
-        {/* Role & Experience */}
+        {/* Experience */}
         <Card>
           <CardHeader>
-            <CardTitle>Role & Experience</CardTitle>
+            <CardTitle>Experience</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <Input placeholder="Post applied for" value={form.post_applied_for} onChange={(e) => setField("post_applied_for", e.target.value)} />
-              <Input placeholder="Referred by" value={form.referred_by} onChange={(e) => setField("referred_by", e.target.value)} />
-            </div>
-            <div className="border-t pt-4 space-y-3">
+            <div className="space-y-3">
               <Label className="text-sm font-medium">Experience (Years)</Label>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="space-y-1">

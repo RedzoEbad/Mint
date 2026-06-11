@@ -18,9 +18,9 @@ export type CandidateFormValues = {
   date_of_issue?: Date
   date_of_expiry?: Date
   place_of_issue: string
-  primary_school: string
-  secondary_school: string
-  higher_education: string
+  primary_school?: string
+  secondary_school?: string
+  higher_education?: string
   diploma: string
   gcc_experience: string
   ksa_experience: string
@@ -32,13 +32,21 @@ export type CandidateFormValues = {
 
 export type CandidateFormFiles = {
   profileImage: boolean
+  passportImage: boolean
   cnicFront: boolean
   cnicBack: boolean
-  matricCertificate: boolean
-  intermediateCertificate: boolean
-  diplomaCertificate: boolean
+  educationalDocument: boolean
   experienceLetter: boolean
   cv: boolean
+}
+
+function hasTechnicalQualContent(tq: TechnicalQualInput): boolean {
+  return Boolean(
+    tq.qualification_name.trim() ||
+      tq.institution.trim() ||
+      tq.year.trim() ||
+      tq.hasCertificate,
+  )
 }
 
 export function validateCandidateForm(
@@ -47,23 +55,19 @@ export function validateCandidateForm(
   technicalQuals: TechnicalQualInput[],
   files: CandidateFormFiles,
 ): { valid: boolean; message?: string } {
-  const requiredText: { key: string; label: string; value: string }[] = [
-    { key: "full_name", label: "Given names", value: form.full_name },
-    { key: "surname", label: "Surname", value: form.surname },
-    { key: "father_name", label: "Father's name", value: form.father_name },
-    { key: "marital_status", label: "Marital status", value: form.marital_status },
-    { key: "religion", label: "Religion", value: form.religion },
-    { key: "sex", label: "Sex", value: form.sex },
-    { key: "citizenship_no", label: "Citizenship number", value: form.citizenship_no },
-    { key: "passport_no", label: "Passport number", value: form.passport_no },
-    { key: "place_of_issue", label: "Place of issue", value: form.place_of_issue },
-    { key: "primary_school", label: "Primary school", value: form.primary_school },
-    { key: "secondary_school", label: "Secondary school", value: form.secondary_school },
-    { key: "higher_education", label: "Higher education", value: form.higher_education },
-    { key: "diploma", label: "Diploma", value: form.diploma },
-    { key: "post_applied_for", label: "Post applied for", value: form.post_applied_for },
-    { key: "referred_by", label: "Referred by", value: form.referred_by },
-    { key: "remarks", label: "Remarks", value: form.remarks },
+  const requiredText: { label: string; value: string }[] = [
+    { label: "Given names", value: form.full_name },
+    { label: "Surname", value: form.surname },
+    { label: "Father's name", value: form.father_name },
+    { label: "Marital status", value: form.marital_status },
+    { label: "Religion", value: form.religion },
+    { label: "Gender", value: form.sex },
+    { label: "CNIC", value: form.citizenship_no },
+    { label: "Passport number", value: form.passport_no },
+    { label: "Place of issue", value: form.place_of_issue },
+    { label: "Post applied for", value: form.post_applied_for },
+    { label: "Referred by", value: form.referred_by },
+    { label: "Remarks", value: form.remarks },
   ]
 
   for (const field of requiredText) {
@@ -82,26 +86,21 @@ export function validateCandidateForm(
 
   if (languages.length === 0) return { valid: false, message: "Add at least one language." }
 
-  if (technicalQuals.length === 0) {
-    return { valid: false, message: "Add at least one technical qualification." }
-  }
-
-  for (let i = 0; i < technicalQuals.length; i++) {
-    const tq = technicalQuals[i]
+  const filledTechQuals = technicalQuals.filter(hasTechnicalQualContent)
+  for (let i = 0; i < filledTechQuals.length; i++) {
+    const tq = filledTechQuals[i]
     const n = i + 1
-    if (!tq.qualification_name.trim()) return { valid: false, message: `Technical qualification #${n}: name is required.` }
-    if (!tq.institution.trim()) return { valid: false, message: `Technical qualification #${n}: institution is required.` }
-    if (!tq.year.trim()) return { valid: false, message: `Technical qualification #${n}: year is required.` }
-    if (!tq.hasCertificate) return { valid: false, message: `Technical qualification #${n}: certification file is required.` }
+    if (!tq.qualification_name.trim()) {
+      return { valid: false, message: `Technical qualification #${n}: name is required when other details are provided.` }
+    }
   }
 
   const fileChecks: { key: keyof CandidateFormFiles; label: string }[] = [
     { key: "profileImage", label: "Profile image" },
+    { key: "passportImage", label: "Passport picture" },
     { key: "cnicFront", label: "CNIC front image" },
     { key: "cnicBack", label: "CNIC back image" },
-    { key: "matricCertificate", label: "Matric certificate" },
-    { key: "intermediateCertificate", label: "Intermediate certificate" },
-    { key: "diplomaCertificate", label: "Diploma certificate" },
+    { key: "educationalDocument", label: "Educational certificate" },
     { key: "experienceLetter", label: "Experience letter" },
     { key: "cv", label: "CV document" },
   ]
@@ -128,4 +127,11 @@ export function validateDocOrImageFile(file: File, maxMb = 5): string | null {
     return `File too large (max ${maxMb}MB).`
   }
   return null
+}
+
+export function formatDiplomaDetails(name: string, institution: string, year: string): string {
+  const parts = [name.trim()]
+  if (institution.trim()) parts.push(institution.trim())
+  if (year.trim()) parts.push(`(${year.trim()})`)
+  return parts.filter(Boolean).join(" — ")
 }

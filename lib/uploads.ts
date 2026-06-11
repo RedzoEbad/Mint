@@ -13,6 +13,7 @@ const ALLOWED_TYPES = new Set([
   "certificates",
   "experience-letters",
   "cv-docs",
+  "passport-images",
   "expense-receipts",
 ])
 

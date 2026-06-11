@@ -242,6 +242,7 @@ export const candidates = pgTable("candidates", {
 	matricCertificate: varchar("matric_certificate", { length: 500 }),
 	intermediateCertificate: varchar("intermediate_certificate", { length: 500 }),
 	diplomaCertificate: varchar("diploma_certificate", { length: 500 }),
+	passportImage: varchar("passport_image", { length: 500 }),
 	academicQualifications: text("academic_qualifications"),
 	technicalQualifications: text("technical_qualifications"),
 	languagesKnown: text("languages_known").array(),

@@ -80,8 +80,8 @@ export async function POST(request: NextRequest) {
     let cnicFrontUrl: string | null = null
     let cnicBackUrl: string | null = null
     let matricCertificateUrl: string | null = null
-    let intermediateCertificateUrl: string | null = null
     let diplomaCertificateUrl: string | null = null
+    let passportImageUrl: string | null = null
     let experienceLetterUrl: string | null = null
 
     if (contentType.includes("multipart/form-data")) {
@@ -166,13 +166,13 @@ export async function POST(request: NextRequest) {
       if (cnicBack instanceof File && cnicBack.size > 0) {
         cnicBackUrl = (await saveFile("cnic-images", cnicBack)).url
       }
-      const matricCert = form.get("matric_certificate_file")
-      if (matricCert instanceof File && matricCert.size > 0) {
-        matricCertificateUrl = (await saveFile("certificates", matricCert)).url
+      const passportImage = form.get("passport_image_file")
+      if (passportImage instanceof File && passportImage.size > 0) {
+        passportImageUrl = (await saveFile("passport-images", passportImage)).url
       }
-      const intermediateCert = form.get("intermediate_certificate_file")
-      if (intermediateCert instanceof File && intermediateCert.size > 0) {
-        intermediateCertificateUrl = (await saveFile("certificates", intermediateCert)).url
+      const educationalDoc = form.get("educational_document_file")
+      if (educationalDoc instanceof File && educationalDoc.size > 0) {
+        matricCertificateUrl = (await saveFile("certificates", educationalDoc)).url
       }
       const diplomaCert = form.get("diploma_certificate_file")
       if (diplomaCert instanceof File && diplomaCert.size > 0) {
@@ -198,9 +198,9 @@ export async function POST(request: NextRequest) {
       cvFileUrl = data.cv_file || null
       cnicFrontUrl = data.cnic_front_image || null
       cnicBackUrl = data.cnic_back_image || null
-      matricCertificateUrl = data.matric_certificate || null
-      intermediateCertificateUrl = data.intermediate_certificate || null
+      matricCertificateUrl = data.matric_certificate || data.educational_document || null
       diplomaCertificateUrl = data.diploma_certificate || null
+      passportImageUrl = data.passport_image || null
       experienceLetterUrl = data.experience_letter || null
     }
 
@@ -242,12 +242,12 @@ export async function POST(request: NextRequest) {
         full_name, surname, father_name, date_of_birth, marital_status, religion, sex, citizenship_no,
         passport_no, date_of_issue, date_of_expiry, place_of_issue, cnic_front_image, cnic_back_image,
         primary_school, secondary_school, higher_education, diploma,
-        matric_certificate, intermediate_certificate, diploma_certificate,
+        matric_certificate, intermediate_certificate, diploma_certificate, passport_image,
         academic_qualifications, technical_qualifications, languages_known,
         gcc_experience, ksa_experience, local_experience, experience_total,
         post_applied_for, referred_by, experience_letter, profile_image,
         cv_file, remarks, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36)
       RETURNING id`,
       [
         full_name,
@@ -269,8 +269,9 @@ export async function POST(request: NextRequest) {
         higher_education,
         diploma,
         matricCertificateUrl,
-        intermediateCertificateUrl,
+        null,
         diplomaCertificateUrl,
+        passportImageUrl,
         academic_qualifications,
         technical_qualifications,
         languages_known,

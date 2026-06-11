@@ -3,7 +3,7 @@ export type AppRole = "super_admin" | "admin" | "receptionist" | "process_agent"
 const DASHBOARD_BY_ROLE: Record<AppRole, string> = {
   super_admin: "/dashboard/admin",
   admin: "/dashboard/admin",
-  receptionist: "/dashboard/candidates",
+  receptionist: "/dashboard/receptionist",
   process_agent: "/dashboard/agent",
   accountant: "/dashboard/accounts",
 }

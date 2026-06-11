@@ -42,6 +42,7 @@ import { routeRoleMap } from "@/lib/rbac"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CommandDialog, CommandInput, CommandList, CommandGroup, CommandItem, CommandEmpty, CommandSeparator } from "@/components/ui/command"
 import { useCompany } from "@/components/company-provider"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 interface NavigationItem {
   name: string
@@ -52,7 +53,10 @@ interface NavigationItem {
 
 // Primary navigation tuned per role (RBAC further filters this)
 const navigationItems: NavigationItem[] = [
-  { name: "Dashboard", href: "/dashboard", icon: Home, roles: ["super_admin", "receptionist", "process_agent", "accountant"] },
+  { name: "Dashboard", href: "/dashboard", icon: Home, roles: ["super_admin", "process_agent", "accountant"] },
+  { name: "Dashboard", href: "/dashboard/receptionist", icon: Home, roles: ["receptionist"] },
+  { name: "Candidates", href: "/dashboard/candidates", icon: Users, roles: ["receptionist"] },
+  { name: "Add Candidate", href: "/dashboard/candidates/add", icon: UserPlus, roles: ["receptionist"] },
   { name: "Dashboard", href: "/dashboard/super-admin", icon: Settings, roles: ["super_admin"] },
   { name: "Dashboard", href: "/dashboard/admin", icon: Home, roles: ["admin"] },
   { name: "Employees", href: "/dashboard/admin/employees", icon: Users, roles: ["super_admin", "admin"] },
@@ -95,6 +99,8 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
       if (!user) return false
       // For admins, hide the generic /dashboard link in favor of /dashboard/admin
       if (user.role === "admin" && item.href === "/dashboard") return false
+      // For receptionists, hide generic /dashboard in favor of /dashboard/receptionist
+      if (user.role === "receptionist" && item.href === "/dashboard") return false
       return roles.includes(user.role)
     })
 
@@ -125,6 +131,9 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
 
   // Build command palette links with RBAC visibility
   const commandLinks: { name: string; href: string }[] = [
+    { name: "Reception Dashboard", href: "/dashboard/receptionist" },
+    { name: "Candidates", href: "/dashboard/candidates" },
+    { name: "Add Candidate", href: "/dashboard/candidates/add" },
     { name: "Candidate Pool", href: "/dashboard/agent/pool" },
     { name: "Workflows", href: "/dashboard/workflows" },
     { name: "Admin Engagements", href: "/dashboard/admin/engagements" },
@@ -141,12 +150,12 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
   })
 
   const Sidebar = ({ mobile = false }: { mobile?: boolean }) => (
-    <div className="relative flex h-full flex-col bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 overflow-hidden">
+    <div className="relative flex h-full flex-col bg-white dark:bg-sidebar border-r border-gray-200 dark:border-sidebar-border overflow-hidden">
       {/* Background Pattern - Using CSS for better performance */}
       <div className="absolute inset-0 sidebar-pattern opacity-[0.12] dark:opacity-[0.08] pointer-events-none pattern-transition"></div>
 
       {/* Logo */}
-      <div className="relative z-10 flex h-16 items-center justify-center px-4 border-b border-gray-200 dark:border-gray-700 bg-white/85 dark:bg-gray-900/85 sidebar-backdrop">
+      <div className="relative z-10 flex h-16 items-center justify-center px-4 border-b border-gray-200 dark:border-sidebar-border bg-white/85 dark:bg-sidebar/85 sidebar-backdrop">
         <div className="relative w-32 h-8">
           <Image src="/images/mint-logo.png" alt="MINT International" fill className="object-contain" />
         </div>
@@ -187,9 +196,9 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
       </nav>
 
       {/* Enhanced Pattern Footer - Using CSS for better performance */}
-      <div className="relative z-10 h-24 overflow-hidden bg-gradient-to-t from-white/90 dark:from-gray-900/90 to-transparent">
+      <div className="relative z-10 h-24 overflow-hidden bg-gradient-to-t from-white/90 dark:from-sidebar to-transparent">
         <div className="absolute inset-0 sidebar-pattern-footer opacity-[0.06] dark:opacity-[0.04] pattern-transition"></div>
-        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white dark:from-gray-900 to-transparent"></div>
+        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white dark:from-sidebar to-transparent"></div>
       </div>
     </div>
   )
@@ -213,7 +222,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
   }, [])
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-x-hidden">
+    <div className="flex h-screen bg-gray-50 dark:bg-background overflow-x-hidden">
       {/* Desktop Sidebar */}
       <div className="hidden lg:flex lg:w-64 lg:flex-col">
         <Sidebar />
@@ -229,7 +238,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
       {/* Main Content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
-        <header className="glass-panel border-b border-slate-200/60 h-16 flex items-center px-6 z-20">
+        <header className="glass-panel border-b border-slate-200/60 dark:border-slate-600/40 h-16 flex items-center px-6 z-20">
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center gap-6">
               {/* Mobile Menu Button */}
@@ -244,7 +253,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
 
               {/* Page Title & Breadcrumb-ish */}
               <div className="flex flex-col">
-                <h1 className="text-lg font-bold text-slate-900 leading-tight">{title || "Dashboard"}</h1>
+                <h1 className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{title || "Dashboard"}</h1>
                 <div className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
                   <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
@@ -276,6 +285,8 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
 
             {/* Right Controls */}
             <div className="flex items-center gap-3">
+              {user?.role === "receptionist" && <ThemeToggle />}
+
               <Button
                 variant="outline"
                 size="sm"
@@ -368,10 +379,10 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
         </header>
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-slate-50/40">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-slate-50/40 dark:bg-background">
           <div className="relative min-h-full">
             {/* Design Elements */}
-            <div className="absolute top-0 right-0 w-full h-96 bg-gradient-to-br from-blue-100/20 via-transparent to-transparent pointer-events-none" />
+            <div className="absolute top-0 right-0 w-full h-96 bg-gradient-to-br from-blue-100/20 via-transparent to-transparent dark:from-blue-900/15 pointer-events-none" />
 
             {/* Content */}
             <div className="relative z-10 px-8 py-8 animate-fade-in">

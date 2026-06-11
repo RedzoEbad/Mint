@@ -2,7 +2,6 @@
 import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { DashboardLayout } from "@/components/dashboard-layout"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
@@ -11,12 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { format } from "date-fns"
-import { Loader2, CalendarIcon, Plus, X, Upload, Info, FileDown, GraduationCap } from "lucide-react"
+import { Loader2, CalendarIcon, Plus, X, Upload, Info, FileDown, Briefcase, User, BookOpen, Globe, MapPin, Stamp, FileText, Sparkles } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { computeExperienceTotal, sanitizeExperienceInput } from "@/lib/candidate-experience"
-import { validateCandidateForm, validateDocOrImageFile } from "@/lib/candidate-form-validation"
-import { DocUploadField, ReqLabel } from "@/components/candidate-doc-upload"
+import { validateCandidateForm, validateDocOrImageFile, formatDiplomaDetails } from "@/lib/candidate-form-validation"
+import { DocUploadField, FieldLabel, ReqLabel } from "@/components/candidate-doc-upload"
 import { ProfilePortraitUpload } from "@/components/profile-portrait-upload"
+import { CandidateFormSection, CANDIDATE_INPUT, CANDIDATE_SELECT } from "@/components/candidate-form-section"
 import { ClientOnly } from "@/components/client-only"
 
 type TechnicalQualEntry = {
@@ -47,9 +47,6 @@ export default function AddCandidatePage() {
     date_of_issue: undefined as Date | undefined,
     date_of_expiry: undefined as Date | undefined,
     place_of_issue: "",
-    primary_school: "",
-    secondary_school: "",
-    higher_education: "",
     diploma: "",
     gcc_experience: "",
     ksa_experience: "",
@@ -69,17 +66,18 @@ export default function AddCandidatePage() {
   const [cnicFrontName, setCnicFrontName] = useState("")
   const [cnicBackFile, setCnicBackFile] = useState<File | null>(null)
   const [cnicBackName, setCnicBackName] = useState("")
-  const [matricCertFile, setMatricCertFile] = useState<File | null>(null)
-  const [matricCertName, setMatricCertName] = useState("")
-  const [intermediateCertFile, setIntermediateCertFile] = useState<File | null>(null)
-  const [intermediateCertName, setIntermediateCertName] = useState("")
-  const [diplomaCertFile, setDiplomaCertFile] = useState<File | null>(null)
-  const [diplomaCertName, setDiplomaCertName] = useState("")
+  const [passportImageFile, setPassportImageFile] = useState<File | null>(null)
+  const [passportImageName, setPassportImageName] = useState("")
+  const [educationalDocFile, setEducationalDocFile] = useState<File | null>(null)
+  const [educationalDocName, setEducationalDocName] = useState("")
   const [experienceLetterFile, setExperienceLetterFile] = useState<File | null>(null)
   const [experienceLetterName, setExperienceLetterName] = useState("")
-  const [technicalQuals, setTechnicalQuals] = useState<TechnicalQualEntry[]>([
-    { qualification_name: "", institution: "", year: "", certificateFile: null, certificateFileName: "" },
-  ])
+  const [diplomaName, setDiplomaName] = useState("")
+  const [diplomaInstitution, setDiplomaInstitution] = useState("")
+  const [diplomaYear, setDiplomaYear] = useState("")
+  const [diplomaCertFile, setDiplomaCertFile] = useState<File | null>(null)
+  const [diplomaCertName, setDiplomaCertName] = useState("")
+  const [technicalQuals, setTechnicalQuals] = useState<TechnicalQualEntry[]>([])
 
   const experienceTotal = useMemo(
     () => computeExperienceTotal(form.gcc_experience, form.ksa_experience, form.local_experience),
@@ -137,6 +135,12 @@ export default function AddCandidatePage() {
       return
     }
     setTechnicalQuals((prev) => prev.map((tq, i) => i === index ? { ...tq, certificateFile: file, certificateFileName: file.name } : tq))
+  }
+
+  function clearTechQualCert(index: number) {
+    setTechnicalQuals((prev) =>
+      prev.map((tq, i) => (i === index ? { ...tq, certificateFile: null, certificateFileName: "" } : tq)),
+    )
   }
 
   const handleProfileImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -207,7 +211,7 @@ export default function AddCandidatePage() {
     e.preventDefault()
 
     const validation = validateCandidateForm(
-      form,
+      { ...form, diploma: formatDiplomaDetails(diplomaName, diplomaInstitution, diplomaYear) },
       languages,
       technicalQuals.map((tq) => ({
         qualification_name: tq.qualification_name,
@@ -217,11 +221,10 @@ export default function AddCandidatePage() {
       })),
       {
         profileImage: Boolean(profileImageFile),
+        passportImage: Boolean(passportImageFile),
         cnicFront: Boolean(cnicFrontFile),
         cnicBack: Boolean(cnicBackFile),
-        matricCertificate: Boolean(matricCertFile),
-        intermediateCertificate: Boolean(intermediateCertFile),
-        diplomaCertificate: Boolean(diplomaCertFile),
+        educationalDocument: Boolean(educationalDocFile),
         experienceLetter: Boolean(experienceLetterFile),
         cv: Boolean(cvFile),
       },
@@ -239,12 +242,17 @@ export default function AddCandidatePage() {
 
       // Add form fields
       Object.entries(form).forEach(([key, value]) => {
+        if (key === "diploma") return
         if (value instanceof Date) {
           formData.append(key, format(value, "yyyy-MM-dd"))
         } else if (value !== undefined && value !== null) {
           formData.append(key, value.toString())
         }
       })
+      formData.append("diploma", formatDiplomaDetails(diplomaName, diplomaInstitution, diplomaYear))
+      formData.append("primary_school", "")
+      formData.append("secondary_school", "")
+      formData.append("higher_education", "")
 
       // Add languages array
       formData.append("languages_known", JSON.stringify(languages))
@@ -258,10 +266,10 @@ export default function AddCandidatePage() {
       })
 
       if (profileImageFile) formData.append("profile_image_file", profileImageFile)
+      if (passportImageFile) formData.append("passport_image_file", passportImageFile)
       if (cnicFrontFile) formData.append("cnic_front_file", cnicFrontFile)
       if (cnicBackFile) formData.append("cnic_back_file", cnicBackFile)
-      if (matricCertFile) formData.append("matric_certificate_file", matricCertFile)
-      if (intermediateCertFile) formData.append("intermediate_certificate_file", intermediateCertFile)
+      if (educationalDocFile) formData.append("educational_document_file", educationalDocFile)
       if (diplomaCertFile) formData.append("diploma_certificate_file", diplomaCertFile)
       if (experienceLetterFile) formData.append("experience_letter_file", experienceLetterFile)
       if (cvFile) formData.append("cv_file", cvFile)
@@ -304,44 +312,91 @@ export default function AddCandidatePage() {
 
   return (
     <DashboardLayout title="Add Candidate">
-      <form
-        id="candidate-form-container"
-        onSubmit={handleSubmit}
-        className="space-y-6 candidate-fade-in"
-        data-testid="candidate-form"
-        suppressHydrationWarning
-      >
-        {/* Header Section */}
-        <div className="candidate-glass-card rounded-2xl p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                <span className="text-white font-bold text-xl">M</span>
-              </div>
-              <div>
-                <div className="text-xl font-bold bg-gradient-to-r from-slate-900 to-blue-900 bg-clip-text text-transparent">
-                  MINT International
+      <div className="candidate-form-shell candidate-fade-in">
+        <form
+          id="candidate-form-container"
+          onSubmit={handleSubmit}
+          className="space-y-5"
+          data-testid="candidate-form"
+          suppressHydrationWarning
+        >
+          {/* Hero Header */}
+          <div className="candidate-form-hero">
+            <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5">
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-xl shadow-blue-500/30 ring-4 ring-blue-100 dark:ring-blue-900/50">
+                    <span className="text-white font-bold text-2xl">M</span>
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-emerald-400 border-2 border-white dark:border-slate-800 flex items-center justify-center">
+                    <Sparkles className="h-2.5 w-2.5 text-white" />
+                  </div>
                 </div>
-                <div className="text-sm text-slate-600 font-medium">Overseas Employment Platform</div>
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-sm font-semibold text-slate-900">New Registration</div>
-              <ClientOnly fallback={<div className="text-xs text-slate-500">—</div>}>
-                <div className="text-xs text-slate-500" suppressHydrationWarning>
-                  {format(new Date(), "MMMM d, yyyy")}
+                <div>
+                  <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-800 dark:from-slate-100 dark:via-blue-200 dark:to-indigo-200 bg-clip-text text-transparent tracking-tight">
+                    New Candidate Registration
+                  </h1>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mt-0.5">MINT International · Overseas Employment</p>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <span className="candidate-progress-pill">7 sections</span>
+                    <span className="candidate-progress-pill">
+                      <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
+                      All fields marked * are required
+                    </span>
+                  </div>
                 </div>
-              </ClientOnly>
+              </div>
+              <div className="sm:text-right shrink-0">
+                <div className="inline-flex flex-col items-start sm:items-end gap-1 rounded-xl bg-white/70 dark:bg-slate-700/50 border border-slate-200/80 dark:border-slate-600/50 px-4 py-3 shadow-sm">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Registration Date</span>
+                  <ClientOnly fallback={<span className="text-sm text-slate-500 dark:text-slate-400">—</span>}>
+                    <span className="text-sm font-semibold text-slate-800 dark:text-slate-200" suppressHydrationWarning>
+                      {format(new Date(), "EEEE, MMMM d, yyyy")}
+                    </span>
+                  </ClientOnly>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Personal Information */}
-        <Card className="candidate-glass-card border-0 overflow-hidden candidate-slide-in shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-slate-50 to-blue-50/30 border-b border-slate-100">
-            <CardTitle className="text-lg font-bold text-slate-900">Personal Information</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-5 md:grid-cols-2 pt-6">
+          <CandidateFormSection
+            id="section-application"
+            step={1}
+            icon={Briefcase}
+            title="Application Details"
+            description="Position and referral information"
+            contentClassName="grid gap-5 md:grid-cols-2"
+          >
+            <div className="space-y-2">
+              <ReqLabel>Post Applied For</ReqLabel>
+              <Input
+                data-testid="post_applied_for"
+                placeholder="e.g. Driver, Electrician, Welder"
+                value={form.post_applied_for}
+                onChange={(e) => setField("post_applied_for", e.target.value)}
+                className={CANDIDATE_INPUT}
+              />
+            </div>
+            <div className="space-y-2">
+              <ReqLabel>Referred By</ReqLabel>
+              <Input
+                data-testid="referred_by"
+                placeholder="Referrer name or agency"
+                value={form.referred_by}
+                onChange={(e) => setField("referred_by", e.target.value)}
+                className={CANDIDATE_INPUT}
+              />
+            </div>
+          </CandidateFormSection>
+
+          <CandidateFormSection
+            id="section-personal"
+            step={2}
+            icon={User}
+            title="Personal Information"
+            description="Identity details as shown on passport"
+            contentClassName="grid gap-5 md:grid-cols-2"
+          >
             <div className="space-y-2">
               <ReqLabel>Given Names</ReqLabel>
               <Input
@@ -349,7 +404,7 @@ export default function AddCandidatePage() {
                 placeholder="Enter given names (as on passport)"
                 value={form.full_name}
                 onChange={(e) => setField("full_name", e.target.value)}
-                className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                className={CANDIDATE_INPUT}
               />
             </div>
             <div className="space-y-2">
@@ -359,7 +414,7 @@ export default function AddCandidatePage() {
                 placeholder="Enter surname (as on passport)"
                 value={form.surname}
                 onChange={(e) => setField("surname", e.target.value)}
-                className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                className={CANDIDATE_INPUT}
               />
             </div>
 
@@ -370,14 +425,14 @@ export default function AddCandidatePage() {
                 placeholder="Enter father's name"
                 value={form.father_name}
                 onChange={(e) => setField("father_name", e.target.value)}
-                className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                className={CANDIDATE_INPUT}
               />
             </div>
 
             <div className="space-y-2">
               <ReqLabel>Marital Status</ReqLabel>
               <Select value={form.marital_status} onValueChange={(v) => setField("marital_status", v)}>
-                <SelectTrigger className="h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
+                <SelectTrigger className={CANDIDATE_SELECT}>
                   <SelectValue placeholder="Select marital status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -396,31 +451,31 @@ export default function AddCandidatePage() {
                 placeholder="Enter religion"
                 value={form.religion}
                 onChange={(e) => setField("religion", e.target.value)}
-                className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                className={CANDIDATE_INPUT}
               />
             </div>
 
             <div className="space-y-2">
-              <ReqLabel>Sex</ReqLabel>
+              <ReqLabel>Gender</ReqLabel>
               <Select value={form.sex} onValueChange={(v) => setField("sex", v)}>
-                <SelectTrigger className="h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
-                  <SelectValue placeholder="Select sex" />
+                <SelectTrigger className={CANDIDATE_SELECT}>
+                  <SelectValue placeholder="Select gender" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="M">M (Male)</SelectItem>
-                  <SelectItem value="F">F (Female)</SelectItem>
+                  <SelectItem value="M">Male</SelectItem>
+                  <SelectItem value="F">Female</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <ReqLabel>Citizenship Number</ReqLabel>
+              <ReqLabel>CNIC</ReqLabel>
               <Input
                 data-testid="citizenship_no"
-                placeholder="Enter citizenship number"
+                placeholder="Enter CNIC number"
                 value={form.citizenship_no}
                 onChange={(e) => setField("citizenship_no", e.target.value)}
-                className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 font-mono"
+                className={`${CANDIDATE_INPUT} font-mono`}
               />
             </div>
 
@@ -441,15 +496,16 @@ export default function AddCandidatePage() {
               onChange={handleProfileImageChange}
               onClear={removeProfileImage}
             />
-          </CardContent>
-        </Card>
+          </CandidateFormSection>
 
-        {/* Passport Details */}
-        <Card className="candidate-glass-card border-0 overflow-hidden candidate-slide-in shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-slate-50 to-blue-50/30 border-b border-slate-100">
-            <CardTitle className="text-lg font-bold text-slate-900">Passport Details</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-5 md:grid-cols-2 pt-6">
+          <CandidateFormSection
+            id="section-passport"
+            step={3}
+            icon={Stamp}
+            title="Passport & Identity Documents"
+            description="Travel document details and ID uploads"
+            contentClassName="grid gap-5 md:grid-cols-2"
+          >
             <div className="space-y-2">
               <ReqLabel>Passport Number</ReqLabel>
               <Input
@@ -457,7 +513,7 @@ export default function AddCandidatePage() {
                 placeholder="Enter passport number"
                 value={form.passport_no}
                 onChange={(e) => setField("passport_no", e.target.value)}
-                className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 font-mono"
+                className={`${CANDIDATE_INPUT} font-mono`}
               />
             </div>
             <div className="space-y-2">
@@ -466,7 +522,7 @@ export default function AddCandidatePage() {
                 placeholder="Enter place of issue"
                 value={form.place_of_issue}
                 onChange={(e) => setField("place_of_issue", e.target.value)}
-                className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                className={CANDIDATE_INPUT}
               />
             </div>
 
@@ -499,10 +555,19 @@ export default function AddCandidatePage() {
               />
             </div>
 
-            <div className="md:col-span-2 grid gap-4 sm:grid-cols-2 border-t border-slate-100 pt-5">
+            <div className="md:col-span-2 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 border-t border-slate-100/80 dark:border-slate-600/50 pt-6 mt-1">
+              <DocUploadField
+                id="passport-picture"
+                label="Passport Picture"
+                fileName={passportImageName}
+                accept="image/*"
+                hint="Clear passport photo page, JPG or PNG, max 5MB"
+                onFileChange={(e) => handleDocFileChange(e, setPassportImageFile, setPassportImageName)}
+                onClear={() => { setPassportImageFile(null); setPassportImageName("") }}
+              />
               <DocUploadField
                 id="cnic-front"
-                label="CNIC Front Image"
+                label="CNIC Front"
                 fileName={cnicFrontName}
                 hint="PDF or image, max 5MB"
                 onFileChange={(e) => handleDocFileChange(e, setCnicFrontFile, setCnicFrontName)}
@@ -510,107 +575,100 @@ export default function AddCandidatePage() {
               />
               <DocUploadField
                 id="cnic-back"
-                label="CNIC Back Image"
+                label="CNIC Back"
                 fileName={cnicBackName}
                 hint="PDF or image, max 5MB"
                 onFileChange={(e) => handleDocFileChange(e, setCnicBackFile, setCnicBackName)}
                 onClear={() => { setCnicBackFile(null); setCnicBackName("") }}
               />
             </div>
-          </CardContent>
-        </Card>
+          </CandidateFormSection>
 
-        {/* Qualifications */}
-        <Card className="candidate-glass-card border-0 overflow-hidden candidate-slide-in shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-slate-50 to-blue-50/30 border-b border-slate-100">
-            <CardTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <GraduationCap className="h-5 w-5 text-blue-600" />
-              Qualifications
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-5 pt-6">
-            <div className="grid gap-5 md:grid-cols-2">
-              <div className="space-y-2">
-                <ReqLabel>Primary School</ReqLabel>
-                <Input
-                  data-testid="primary_school"
-                  placeholder="School name, year completed"
-                  value={form.primary_school}
-                  onChange={(e) => setField("primary_school", e.target.value)}
-                  className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                />
-              </div>
-              <div className="space-y-2">
-                <ReqLabel>Secondary School</ReqLabel>
-                <Input
-                  data-testid="secondary_school"
-                  placeholder="School name, year completed"
-                  value={form.secondary_school}
-                  onChange={(e) => setField("secondary_school", e.target.value)}
-                  className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                />
-              </div>
-              <div className="space-y-2">
-                <ReqLabel>Higher Education</ReqLabel>
-                <Input
-                  data-testid="higher_education"
-                  placeholder="University / college, degree, year"
-                  value={form.higher_education}
-                  onChange={(e) => setField("higher_education", e.target.value)}
-                  className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                />
-              </div>
-              <div className="space-y-2">
-                <ReqLabel>Diploma</ReqLabel>
-                <Input
-                  data-testid="diploma"
-                  placeholder="Diploma name, institution, year"
-                  value={form.diploma}
-                  onChange={(e) => setField("diploma", e.target.value)}
-                  className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                />
-              </div>
-            </div>
+          <CandidateFormSection
+            id="section-qualifications"
+            step={4}
+            icon={BookOpen}
+            title="Qualifications"
+            description="Education, diplomas, and language skills"
+            contentClassName="space-y-6"
+          >
+            <DocUploadField
+              id="educational-doc"
+              label="Educational Certificate"
+              fileName={educationalDocName}
+              hint="Matric, intermediate, diploma, or degree certificate — PDF or image, max 5MB"
+              onFileChange={(e) => handleDocFileChange(e, setEducationalDocFile, setEducationalDocName)}
+              onClear={() => { setEducationalDocFile(null); setEducationalDocName("") }}
+            />
 
-            <div className="grid gap-4 sm:grid-cols-3 border-t border-slate-100 pt-5">
-              <DocUploadField
-                id="matric-cert"
-                label="Matric Certificate"
-                fileName={matricCertName}
-                onFileChange={(e) => handleDocFileChange(e, setMatricCertFile, setMatricCertName)}
-                onClear={() => { setMatricCertFile(null); setMatricCertName("") }}
-              />
-              <DocUploadField
-                id="intermediate-cert"
-                label="Intermediate Certificate"
-                fileName={intermediateCertName}
-                onFileChange={(e) => handleDocFileChange(e, setIntermediateCertFile, setIntermediateCertName)}
-                onClear={() => { setIntermediateCertFile(null); setIntermediateCertName("") }}
-              />
+            {/* Diploma — separate fields */}
+            <div className="candidate-nested-panel">
+              <FieldLabel className="text-base">Diploma / Technical Certificate</FieldLabel>
+              <p className="text-xs text-slate-500 dark:text-slate-400 -mt-2">Optional — leave blank if not applicable</p>
+              <div className="grid gap-3 md:grid-cols-3">
+                <Input
+                  placeholder="Diploma / course name"
+                  value={diplomaName}
+                  onChange={(e) => setDiplomaName(e.target.value)}
+                  className={CANDIDATE_INPUT}
+                />
+                <Input
+                  placeholder="Institution"
+                  value={diplomaInstitution}
+                  onChange={(e) => setDiplomaInstitution(e.target.value)}
+                  className={CANDIDATE_INPUT}
+                />
+                <Input
+                  placeholder="Year"
+                  value={diplomaYear}
+                  onChange={(e) => setDiplomaYear(e.target.value)}
+                  className={CANDIDATE_INPUT}
+                />
+              </div>
               <DocUploadField
                 id="diploma-cert"
-                label="Diploma Certificate"
+                label="Upload Certificate"
                 fileName={diplomaCertName}
+                required={false}
+                hint="Upload diploma or technical certificate — PDF or image, max 5MB"
                 onFileChange={(e) => handleDocFileChange(e, setDiplomaCertFile, setDiplomaCertName)}
                 onClear={() => { setDiplomaCertFile(null); setDiplomaCertName("") }}
               />
             </div>
 
-            {/* Technical Qualifications */}
-            <div className="space-y-3 border-t border-slate-100 pt-5">
+            {/* Technical Qualifications — optional */}
+            <div className="space-y-3 border-t border-slate-100 dark:border-slate-600/50 pt-5">
               <div className="flex items-center justify-between">
-                <ReqLabel className="!text-sm">Technical Qualifications</ReqLabel>
-                <Button type="button" variant="outline" size="sm" onClick={addTechnicalQual} className="h-9">
-                  <Plus className="h-4 w-4 mr-1" /> Add Qualification
+                <div>
+                  <FieldLabel className="text-base">Technical Qualifications</FieldLabel>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Optional — add trade certifications if any</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addTechnicalQual}
+                  className="h-9 rounded-xl border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300"
+                >
+                  <Plus className="h-4 w-4 mr-1" /> Add
                 </Button>
               </div>
-              <p className="text-xs text-slate-500">List each technical qualification and attach its certification.</p>
+              {technicalQuals.length === 0 ? (
+                <div className="candidate-empty-state">
+                  <BookOpen className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                  <p className="text-sm text-slate-500 dark:text-slate-400">No technical qualifications added yet.</p>
+                  <p className="text-xs text-slate-400 mt-1">Click Add to include trade certifications</p>
+                </div>
+              ) : (
               <div className="space-y-4">
                   {technicalQuals.map((tq, index) => (
-                    <div key={index} className="p-4 border border-slate-200 rounded-xl bg-slate-50/50 space-y-3">
+                    <div key={index} className="candidate-nested-panel !p-4 space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Qualification #{index + 1}</span>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => removeTechnicalQual(index)} className="h-8 text-red-600 hover:text-red-700 hover:bg-red-50">
+                        <span className="inline-flex items-center gap-2 text-xs font-bold text-blue-600 uppercase tracking-wide">
+                          <span className="h-5 w-5 rounded-md bg-blue-100 flex items-center justify-center text-[10px]">{index + 1}</span>
+                          Qualification
+                        </span>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => removeTechnicalQual(index)} className="h-8 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50">
                           <X className="h-4 w-4" />
                         </Button>
                       </div>
@@ -619,45 +677,37 @@ export default function AddCandidatePage() {
                           placeholder="Qualification name"
                           value={tq.qualification_name}
                           onChange={(e) => updateTechnicalQual(index, "qualification_name", e.target.value)}
-                          className="h-10"
+                          className={CANDIDATE_INPUT}
                         />
                         <Input
-                          placeholder="Institution / issuing body"
+                          placeholder="Institution"
                           value={tq.institution}
                           onChange={(e) => updateTechnicalQual(index, "institution", e.target.value)}
-                          className="h-10"
+                          className={CANDIDATE_INPUT}
                         />
                         <Input
                           placeholder="Year"
                           value={tq.year}
                           onChange={(e) => updateTechnicalQual(index, "year", e.target.value)}
-                          className="h-10"
+                          className={CANDIDATE_INPUT}
                         />
                       </div>
-                      <div className="flex items-center gap-3">
-                        <Label htmlFor={`tech-cert-${index}`} className="cursor-pointer">
-                          <span className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 border border-blue-200 rounded-lg px-3 py-2 bg-white">
-                            <Upload className="h-4 w-4" />
-                            {tq.certificateFileName || "Attach Certification"}
-                          </span>
-                        </Label>
-                        <input
-                          id={`tech-cert-${index}`}
-                          type="file"
-                          accept=".pdf,image/*"
-                          onChange={(e) => handleTechQualCertChange(index, e)}
-                          className="hidden"
-                        />
-                        {tq.certificateFileName && (
-                          <span className="text-xs text-slate-500 truncate max-w-[200px]">{tq.certificateFileName}</span>
-                        )}
-                      </div>
+                      <DocUploadField
+                        id={`tech-cert-${index}`}
+                        label="Certificate"
+                        fileName={tq.certificateFileName}
+                        required={false}
+                        hint="PDF or image, max 5MB"
+                        onFileChange={(e) => handleTechQualCertChange(index, e)}
+                        onClear={() => clearTechQualCert(index)}
+                      />
                     </div>
                   ))}
               </div>
+              )}
             </div>
 
-            <div className="space-y-3 border-t border-slate-100 pt-5">
+            <div className="space-y-3 border-t border-slate-100 dark:border-slate-600/50 pt-5">
               <ReqLabel>Languages Known</ReqLabel>
               <div className="flex gap-2">
                 <Input
@@ -665,22 +715,22 @@ export default function AddCandidatePage() {
                   value={languageInput}
                   onChange={(e) => setLanguageInput(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addLanguage())}
-                  className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                  className={CANDIDATE_INPUT}
                 />
                 <Button
                   type="button"
                   onClick={addLanguage}
-                  className="h-11 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/25"
+                  className="h-11 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/25"
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 min-h-[40px]">
+                {languages.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic py-2">No languages added yet</p>
+                ) : null}
                 {languages.map((lang) => (
-                  <span
-                    key={lang}
-                    className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border border-blue-200 px-4 py-2 text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200"
-                  >
+                  <span key={lang} className="candidate-lang-chip">
                     {lang}
                     <button
                       type="button"
@@ -694,82 +744,83 @@ export default function AddCandidatePage() {
                 ))}
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </CandidateFormSection>
 
-        {/* Role & Experience */}
-        <Card className="candidate-glass-card border-0 overflow-hidden candidate-slide-in shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-slate-50 to-blue-50/30 border-b border-slate-100">
-            <CardTitle className="text-lg font-bold text-slate-900">Role & Experience</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-5 pt-6">
-            <div className="grid gap-5 md:grid-cols-2">
-              <div className="space-y-2">
-                <ReqLabel>Post Applied For</ReqLabel>
-                <Input
-                  data-testid="post_applied_for"
-                  placeholder="Enter position"
-                  value={form.post_applied_for}
-                  onChange={(e) => setField("post_applied_for", e.target.value)}
-                  className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                />
-              </div>
-              <div className="space-y-2">
-                <ReqLabel>Referred By</ReqLabel>
-                <Input
-                  data-testid="referred_by"
-                  placeholder="Enter referrer name"
-                  value={form.referred_by}
-                  onChange={(e) => setField("referred_by", e.target.value)}
-                  className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-3 border-t border-slate-100 pt-5">
+          <CandidateFormSection
+            id="section-experience"
+            step={5}
+            icon={Briefcase}
+            title="Work Experience"
+            description="Years of experience and supporting documents"
+            contentClassName="grid gap-6"
+          >
+            <div className="space-y-4">
               <ReqLabel>Experience (Years)</ReqLabel>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="space-y-2">
-                  <ReqLabel className="!text-xs text-slate-500">GCC Experience</ReqLabel>
+                <div className="candidate-exp-stat">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-8 w-8 rounded-lg bg-amber-100 flex items-center justify-center">
+                      <Globe className="h-4 w-4 text-amber-600" />
+                    </div>
+                    <ReqLabel className="!text-xs text-slate-600 !font-medium">GCC</ReqLabel>
+                  </div>
                   <Input
                     data-testid="gcc_experience"
-                    placeholder="Years"
+                    placeholder="0"
                     value={form.gcc_experience}
                     onChange={(e) => setField("gcc_experience", sanitizeExperienceInput(e.target.value))}
-                    className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                    className={`${CANDIDATE_INPUT} text-lg font-semibold text-center`}
                   />
                 </div>
-                <div className="space-y-2">
-                  <ReqLabel className="!text-xs text-slate-500">KSA Experience</ReqLabel>
+                <div className="candidate-exp-stat">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-8 w-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+                      <MapPin className="h-4 w-4 text-emerald-600" />
+                    </div>
+                    <ReqLabel className="!text-xs text-slate-600 !font-medium">KSA</ReqLabel>
+                  </div>
                   <Input
                     data-testid="ksa_experience"
-                    placeholder="Years"
+                    placeholder="0"
                     value={form.ksa_experience}
                     onChange={(e) => setField("ksa_experience", sanitizeExperienceInput(e.target.value))}
-                    className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                    className={`${CANDIDATE_INPUT} text-lg font-semibold text-center`}
                   />
                 </div>
-                <div className="space-y-2">
-                  <ReqLabel className="!text-xs text-slate-500">Local Experience</ReqLabel>
+                <div className="candidate-exp-stat">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-8 w-8 rounded-lg bg-violet-100 flex items-center justify-center">
+                      <User className="h-4 w-4 text-violet-600" />
+                    </div>
+                    <ReqLabel className="!text-xs text-slate-600 !font-medium">Local</ReqLabel>
+                  </div>
                   <Input
                     data-testid="local_experience"
-                    placeholder="Years"
+                    placeholder="0"
                     value={form.local_experience}
                     onChange={(e) => setField("local_experience", sanitizeExperienceInput(e.target.value))}
-                    className="candidate-input-field h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                    className={`${CANDIDATE_INPUT} text-lg font-semibold text-center`}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-xs text-slate-500">Total Experience</Label>
+                <div className="candidate-exp-stat-total">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="h-8 w-8 rounded-lg bg-blue-500 flex items-center justify-center shadow-sm">
+                      <Sparkles className="h-4 w-4 text-white" />
+                    </div>
+                    <Label className="text-xs font-bold text-blue-700 uppercase tracking-wide">Total</Label>
+                  </div>
                   <Input
                     data-testid="experience_total"
                     value={experienceTotal || "0"}
                     readOnly
-                    className="candidate-input-field h-11 border-slate-200 bg-slate-100 text-slate-700 font-semibold cursor-not-allowed"
+                    className="h-11 rounded-xl border-blue-200/80 dark:border-blue-700/50 bg-white/80 dark:bg-slate-700/60 text-blue-800 dark:text-blue-300 text-xl font-bold text-center cursor-not-allowed shadow-inner"
                   />
                 </div>
               </div>
-              <p className="text-xs text-slate-500">Total is calculated automatically from GCC, KSA, and Local experience.</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                <Info className="h-3.5 w-3.5" />
+                Total is calculated automatically from GCC, KSA, and Local experience.
+              </p>
             </div>
 
             <DocUploadField
@@ -785,93 +836,103 @@ export default function AddCandidatePage() {
               <ReqLabel>Remarks</ReqLabel>
               <Textarea
                 data-testid="remarks"
-                placeholder="Additional remarks or notes"
+                placeholder="Additional remarks or notes about the candidate..."
                 value={form.remarks}
                 onChange={(e) => setField("remarks", e.target.value)}
-                className="candidate-input-field min-h-[100px] border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 resize-none"
+                className={`${CANDIDATE_INPUT} min-h-[110px] resize-none`}
               />
             </div>
-          </CardContent>
-        </Card>
+          </CandidateFormSection>
 
-        {/* CV Attachment */}
-        <Card className="candidate-glass-card border-0 overflow-hidden candidate-slide-in shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-slate-50 to-blue-50/30 border-b border-slate-100">
-            <CardTitle className="text-lg font-bold text-slate-900">CV Attachment</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="space-y-3 max-w-xl">
+          <CandidateFormSection
+            id="section-cv"
+            step={6}
+            icon={FileText}
+            title="CV Attachment"
+            description="Upload the candidate's curriculum vitae"
+            contentClassName="max-w-xl"
+          >
+            <div className="space-y-3">
               <ReqLabel>CV Document</ReqLabel>
-              <div className="flex items-center gap-2 text-xs text-slate-500 bg-blue-50 border border-blue-100 rounded-lg p-2.5">
+              <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 bg-gradient-to-r from-blue-50 to-indigo-50/60 dark:from-blue-950/40 dark:to-indigo-950/30 border border-blue-100/80 dark:border-blue-800/50 rounded-xl p-3">
                 <Info className="h-4 w-4 text-blue-600 flex-shrink-0" />
                 <span>PDF or DOC/DOCX, max 5MB</span>
               </div>
               {cvFileName ? (
-                <div className="flex items-center justify-between p-4 border-2 border-slate-200 rounded-xl bg-slate-50 shadow-sm group hover:border-blue-300 transition-all">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md">
+                <div className="flex items-center justify-between p-4 border-2 border-emerald-200/80 dark:border-emerald-800/50 rounded-2xl bg-gradient-to-r from-emerald-50/50 to-teal-50/30 dark:from-emerald-950/30 dark:to-teal-950/20 shadow-sm group hover:border-emerald-300 dark:hover:border-emerald-700 transition-all">
+                  <div className="flex items-center space-x-3 min-w-0">
+                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md shrink-0">
                       <FileDown className="h-5 w-5 text-white" />
                     </div>
-                    <span className="text-sm font-medium text-slate-700">{cvFileName}</span>
+                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate">{cvFileName}</span>
                   </div>
                   <Button
                     type="button"
                     size="sm"
                     onClick={removeCvFile}
-                    className="bg-red-600 hover:bg-red-700 text-white shadow-lg"
+                    className="rounded-xl bg-rose-500 hover:bg-rose-600 text-white shadow-md shrink-0 ml-3"
                   >
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
               ) : (
-                <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-blue-400 hover:bg-blue-50/30 transition-all duration-200 cursor-pointer">
-                  <Upload className="mx-auto h-12 w-12 text-slate-400" />
-                  <div className="mt-3">
-                    <Label htmlFor="cv-file" className="cursor-pointer">
-                      <span className="text-sm font-medium text-slate-700 hover:text-blue-600">Click to upload CV</span>
-                    </Label>
-                    <input
-                      id="cv-file"
-                      type="file"
-                      accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                      onChange={handleCvFileChange}
-                      className="hidden"
-                      data-testid="cv-file"
-                    />
+                <div className="candidate-upload-zone cursor-pointer py-10">
+                  <div className="flex h-16 w-16 mx-auto items-center justify-center rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 mb-3">
+                    <Upload className="h-8 w-8 text-slate-400 dark:text-slate-500" />
                   </div>
+                  <Label htmlFor="cv-file" className="cursor-pointer">
+                    <span className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-700/60 rounded-xl px-5 py-2.5 bg-white dark:bg-slate-700 shadow-sm hover:shadow-md transition-all">
+                      <Upload className="h-4 w-4" /> Click to upload CV
+                    </span>
+                  </Label>
+                  <input
+                    id="cv-file"
+                    type="file"
+                    accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    onChange={handleCvFileChange}
+                    className="hidden"
+                    data-testid="cv-file"
+                  />
                 </div>
               )}
             </div>
-          </CardContent>
-        </Card>
+          </CandidateFormSection>
 
-        {/* Action Buttons */}
-        <div className="flex justify-end gap-4 pt-2 animate-fade-in" style={{ animationDelay: '0.6s' }}>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.push("/dashboard/candidates")}
-            className="h-11 px-6 border-2 border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 font-semibold"
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            disabled={submitting}
-            className="h-11 px-8 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 transition-all duration-300 font-semibold disabled:opacity-50"
-            data-testid="submit"
-          >
-            {submitting ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Saving...
-              </span>
-            ) : (
-              "Save Candidate"
-            )}
-          </Button>
-        </div>
-      </form>
+          {/* Sticky Action Bar */}
+          <div className="candidate-sticky-actions">
+            <div className="candidate-form-shell flex items-center justify-between gap-4 !max-w-none">
+              <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
+                Review all sections before saving
+              </p>
+              <div className="flex justify-end gap-3 ml-auto w-full sm:w-auto">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.push("/dashboard/candidates")}
+                  className="h-11 px-6 rounded-xl border-2 border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-500 font-semibold dark:text-slate-200"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={submitting}
+                  className="h-11 px-8 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 transition-all duration-300 font-semibold disabled:opacity-50"
+                  data-testid="submit"
+                >
+                  {submitting ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Saving...
+                    </span>
+                  ) : (
+                    "Save Candidate"
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
     </DashboardLayout>
   )
 }
@@ -899,13 +960,13 @@ function DateField({
       <PopoverTrigger asChild>
         <Button
           variant="outline"
-          className="justify-start w-full h-11 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 candidate-input-field font-medium text-slate-700"
+          className={`justify-start w-full ${CANDIDATE_SELECT} candidate-input-field font-medium`}
         >
-          <CalendarIcon className="mr-2 h-4 w-4 text-slate-400" /> {date ? format(date, "PPP") : label}
+          <CalendarIcon className="mr-2 h-4 w-4 text-slate-400 dark:text-slate-500" /> {date ? format(date, "PPP") : label}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="p-0 border-0 shadow-2xl rounded-2xl overflow-hidden candidate-glass-card" align="start">
-        <div className="p-4 bg-white/95 backdrop-blur-md">
+        <div className="p-4 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md">
           <Calendar
             mode="single"
             selected={date}
@@ -921,17 +982,17 @@ function DateField({
             initialFocus
             className="rounded-xl"
           />
-          <div className="flex justify-between items-center p-2 pt-4 border-t border-slate-100 mt-2">
+          <div className="flex justify-between items-center p-2 pt-4 border-t border-slate-100 dark:border-slate-600/50 mt-2">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onSelect(undefined)}
-              className="text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+              className="text-slate-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
             >
               Clear
             </Button>
             {date && (
-              <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">
+              <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 px-2 py-1 rounded-md">
                 {format(date, "PPP")}
               </span>
             )}

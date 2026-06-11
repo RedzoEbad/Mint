@@ -169,10 +169,10 @@ export default function CandidatesPage() {
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      active: "bg-emerald-50 text-emerald-700 border border-emerald-200",
-      in_process: "bg-amber-50 text-amber-700 border border-amber-200",
-      completed: "bg-blue-50 text-blue-700 border border-blue-200",
-      rejected: "bg-red-50 text-red-700 border border-red-200"
+      active: "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800",
+      in_process: "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800",
+      completed: "bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800",
+      rejected: "bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/50 dark:text-red-300 dark:border-red-800"
     }
     const statusLabels = {
       active: "Active",
@@ -204,11 +204,6 @@ export default function CandidatesPage() {
         .animate-slide-in {
           animation: slideIn 0.4s ease-out forwards;
         }
-        .glass-card {
-          background: rgba(255, 255, 255, 0.95);
-          backdrop-filter: blur(10px);
-          border: 1px solid rgba(255, 255, 255, 0.3);
-        }
         .hover-lift {
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
@@ -220,19 +215,19 @@ export default function CandidatesPage() {
 
       <div className="space-y-6 animate-fade-in">
         {/* Search and Filter Bar */}
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between glass-card rounded-xl p-4 shadow-sm border">
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between glass-card rounded-xl p-4 shadow-sm">
           <div className="flex flex-col sm:flex-row gap-4 flex-1 w-full">
             <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
               <Input
                 placeholder="Search candidates..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-10 bg-white border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
+                className="pl-10 h-10 bg-white dark:bg-slate-700/60 dark:border-slate-600/70 dark:text-slate-100 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200"
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[180px] h-10 bg-white border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
+              <SelectTrigger className="w-full sm:w-[180px] h-10 bg-white dark:bg-slate-700/60 dark:border-slate-600/70 dark:text-slate-100 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
@@ -246,9 +241,9 @@ export default function CandidatesPage() {
           </div>
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-slate-600 font-medium whitespace-nowrap">Rows:</span>
+              <span className="text-slate-600 dark:text-slate-400 font-medium whitespace-nowrap">Rows:</span>
               <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1) }}>
-                <SelectTrigger className="w-[100px] h-10 bg-white border-slate-200">
+                <SelectTrigger className="w-[100px] h-10 bg-white dark:bg-slate-700/60 dark:border-slate-600/70 dark:text-slate-100 border-slate-200">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -269,26 +264,26 @@ export default function CandidatesPage() {
 
         {/* Main Card */}
         <Card className="glass-card shadow-xl border-0 overflow-hidden animate-slide-in">
-          <CardHeader className="bg-gradient-to-r from-slate-50 to-blue-50/30 border-b border-slate-100 pb-6">
-            <CardTitle className="text-2xl font-bold text-slate-900">All Candidates</CardTitle>
-            <CardDescription className="text-slate-600 mt-1">View, edit, and export candidate records</CardDescription>
+          <CardHeader className="bg-gradient-to-r from-slate-50 to-blue-50/30 dark:from-slate-800 dark:to-slate-800/90 border-b border-slate-100 dark:border-slate-600/50 pb-6">
+            <CardTitle className="text-2xl font-bold text-slate-900 dark:text-slate-100">All Candidates</CardTitle>
+            <CardDescription className="text-slate-600 dark:text-slate-400 mt-1">View, edit, and export candidate records</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             {loading ? (
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
-                    <TableHead className="font-semibold text-slate-700">Name</TableHead>
-                    <TableHead className="font-semibold text-slate-700">Passport No</TableHead>
-                    <TableHead className="font-semibold text-slate-700">Position</TableHead>
-                    <TableHead className="font-semibold text-slate-700">Status</TableHead>
-                    <TableHead className="font-semibold text-slate-700">Created</TableHead>
-                    <TableHead className="text-right font-semibold text-slate-700">Actions</TableHead>
+                  <TableRow className="bg-slate-50/50 dark:bg-slate-800/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
+                    <TableHead className="font-semibold text-slate-700 dark:text-slate-300">Name</TableHead>
+                    <TableHead className="font-semibold text-slate-700 dark:text-slate-300">Passport No</TableHead>
+                    <TableHead className="font-semibold text-slate-700 dark:text-slate-300">Position</TableHead>
+                    <TableHead className="font-semibold text-slate-700 dark:text-slate-300">Status</TableHead>
+                    <TableHead className="font-semibold text-slate-700 dark:text-slate-300">Created</TableHead>
+                    <TableHead className="text-right font-semibold text-slate-700 dark:text-slate-300">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={i} className="border-slate-100">
+                    <TableRow key={i} className="border-slate-100 dark:border-slate-700/50">
                       <TableCell>
                         <div className="space-y-2">
                           <Skeleton className="h-4 w-48 bg-slate-200" />
@@ -313,20 +308,20 @@ export default function CandidatesPage() {
             ) : (
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-gradient-to-r from-slate-50 to-blue-50/30 hover:from-slate-50 hover:to-blue-50/30 border-slate-200">
-                    <TableHead className="font-semibold text-slate-700 h-12">Name</TableHead>
-                    <TableHead className="font-semibold text-slate-700">Passport No</TableHead>
-                    <TableHead className="font-semibold text-slate-700">Position</TableHead>
-                    <TableHead className="font-semibold text-slate-700">Status</TableHead>
-                    <TableHead className="font-semibold text-slate-700">Created</TableHead>
-                    <TableHead className="text-right font-semibold text-slate-700">Actions</TableHead>
+                  <TableRow className="bg-gradient-to-r from-slate-50 to-blue-50/30 dark:from-slate-800 dark:to-slate-800/90 hover:from-slate-50 hover:to-blue-50/30 dark:hover:from-slate-800 dark:hover:to-slate-800/90 border-slate-200 dark:border-slate-700/50">
+                    <TableHead className="font-semibold text-slate-700 dark:text-slate-300 h-12">Name</TableHead>
+                    <TableHead className="font-semibold text-slate-700 dark:text-slate-300">Passport No</TableHead>
+                    <TableHead className="font-semibold text-slate-700 dark:text-slate-300">Position</TableHead>
+                    <TableHead className="font-semibold text-slate-700 dark:text-slate-300">Status</TableHead>
+                    <TableHead className="font-semibold text-slate-700 dark:text-slate-300">Created</TableHead>
+                    <TableHead className="text-right font-semibold text-slate-700 dark:text-slate-300">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {candidates.map((c, idx) => (
                     <TableRow
                       key={c.id}
-                      className="border-slate-100 hover:bg-blue-50/30 transition-colors duration-200 group"
+                      className="border-slate-100 dark:border-slate-700/50 hover:bg-blue-50/30 dark:hover:bg-slate-700/40 transition-colors duration-200 group"
                       style={{ animationDelay: `${idx * 50}ms` }}
                     >
                       <TableCell className="py-4">
@@ -335,19 +330,19 @@ export default function CandidatesPage() {
                             {c.full_name.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <div className="font-semibold text-slate-900">{c.full_name}</div>
-                            <div className="text-xs text-slate-500 mt-0.5">{c.father_name}</div>
+                            <div className="font-semibold text-slate-900 dark:text-slate-100">{c.full_name}</div>
+                            <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{c.father_name}</div>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <span className="font-mono text-sm font-medium text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md">
+                        <span className="font-mono text-sm font-medium text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700/60 px-2.5 py-1 rounded-md">
                           {c.passport_no}
                         </span>
                       </TableCell>
-                      <TableCell className="text-slate-700 font-medium">{c.post_applied_for}</TableCell>
+                      <TableCell className="text-slate-700 dark:text-slate-300 font-medium">{c.post_applied_for}</TableCell>
                       <TableCell>{getStatusBadge(c.status)}</TableCell>
-                      <TableCell className="text-slate-600 font-medium">
+                      <TableCell className="text-slate-600 dark:text-slate-400 font-medium">
                         {new Date(c.created_at).toLocaleDateString('en-US', {
                           year: 'numeric',
                           month: 'short',
@@ -360,7 +355,7 @@ export default function CandidatesPage() {
                             variant="ghost"
                             size="sm"
                             asChild
-                            className="h-9 w-9 p-0 hover:bg-blue-100 hover:text-blue-700 transition-all duration-200"
+                            className="h-9 w-9 p-0 hover:bg-blue-100 hover:text-blue-700 dark:hover:bg-blue-950/50 dark:hover:text-blue-300 transition-all duration-200"
                           >
                             <Link href={`/dashboard/candidates/${c.id}`}>
                               <Eye className="h-4 w-4" />
@@ -370,7 +365,7 @@ export default function CandidatesPage() {
                             variant="ghost"
                             size="sm"
                             asChild
-                            className="h-9 w-9 p-0 hover:bg-amber-100 hover:text-amber-700 transition-all duration-200"
+                            className="h-9 w-9 p-0 hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-amber-950/40 dark:hover:text-amber-300 transition-all duration-200"
                           >
                             <Link href={`/dashboard/candidates/${c.id}/edit`}>
                               <Edit className="h-4 w-4" />
@@ -381,17 +376,17 @@ export default function CandidatesPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-9 w-9 p-0 hover:bg-emerald-100 hover:text-emerald-700 transition-all duration-200"
+                                className="h-9 w-9 p-0 hover:bg-emerald-100 hover:text-emerald-700 dark:hover:bg-emerald-950/40 dark:hover:text-emerald-300 transition-all duration-200"
                               >
                                 <FileDown className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="glass-card">
                               <DropdownMenuItem onClick={() => downloadCandidatePdf(c.id, "client")} className="cursor-pointer">
-                                Download Client PDF
+                                FORM-B (Client PDF)
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => downloadCandidatePdf(c.id, "own")} className="cursor-pointer">
-                                Download Own PDF (Full)
+                                FORM-A (Internal PDF)
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -401,20 +396,20 @@ export default function CandidatesPage() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-9 w-9 p-0 text-red-600 hover:bg-red-100 hover:text-red-700 transition-all duration-200"
+                                  className="h-9 w-9 p-0 text-red-600 hover:bg-red-100 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/40 transition-all duration-200"
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </AlertDialogTrigger>
                               <AlertDialogContent className="glass-card">
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle className="text-xl font-bold text-slate-900">Delete candidate?</AlertDialogTitle>
-                                  <AlertDialogDescription className="text-slate-600">
+                                  <AlertDialogTitle className="text-xl font-bold text-slate-900 dark:text-slate-100">Delete candidate?</AlertDialogTitle>
+                                  <AlertDialogDescription className="text-slate-600 dark:text-slate-400">
                                     This action cannot be undone. The candidate and associated data may be permanently removed.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                  <AlertDialogCancel className="hover:bg-slate-100">Cancel</AlertDialogCancel>
+                                  <AlertDialogCancel className="hover:bg-slate-100 dark:hover:bg-slate-700">Cancel</AlertDialogCancel>
                                   <AlertDialogAction
                                     onClick={() => deleteCandidate(c.id)}
                                     className="bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-500/25"
@@ -443,7 +438,7 @@ export default function CandidatesPage() {
                 <PaginationPrevious
                   href="#"
                   onClick={(e) => { e.preventDefault(); setPage((p) => Math.max(1, p - 1)) }}
-                  className="hover:bg-blue-50 hover:text-blue-700 transition-colors duration-200 border border-slate-200"
+                  className="hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-slate-700 dark:hover:text-blue-300 transition-colors duration-200 border border-slate-200 dark:border-slate-600/70"
                 />
               </PaginationItem>
               {Array.from({ length: pages }).slice(0, 5).map((_, i) => {
@@ -456,7 +451,7 @@ export default function CandidatesPage() {
                       onClick={(e) => { e.preventDefault(); setPage(p) }}
                       className={`transition-all duration-200 border ${p === page
                         ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-transparent shadow-lg shadow-blue-500/25 hover:shadow-xl'
-                        : 'border-slate-200 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200'
+                        : 'border-slate-200 dark:border-slate-600/70 hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-slate-700 dark:hover:text-blue-300 hover:border-blue-200 dark:hover:border-blue-700'
                         }`}
                     >
                       {p}
@@ -468,7 +463,7 @@ export default function CandidatesPage() {
                 <PaginationNext
                   href="#"
                   onClick={(e) => { e.preventDefault(); setPage((p) => Math.min(pages, p + 1)) }}
-                  className="hover:bg-blue-50 hover:text-blue-700 transition-colors duration-200 border border-slate-200"
+                  className="hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-slate-700 dark:hover:text-blue-300 transition-colors duration-200 border border-slate-200 dark:border-slate-600/70"
                 />
               </PaginationItem>
             </PaginationContent>

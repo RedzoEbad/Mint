@@ -52,7 +52,7 @@ export function SecureImage({
 
   if (!resolvedSrc) {
     return (
-      <div className={`flex items-center justify-center bg-gray-100 text-xs text-gray-500 ${className || ""}`.trim()}>
+      <div className={`flex items-center justify-center bg-gray-100 dark:bg-slate-700/60 text-xs text-gray-500 dark:text-slate-400 ${className || ""}`.trim()}>
         Image unavailable
       </div>
     )
@@ -73,7 +73,7 @@ export function SecureFileLink({
   const normalized = normalizeStoredFileUrl(url)
 
   if (!normalized) {
-    return <div className="text-sm text-gray-400">-</div>
+    return <div className="text-sm text-gray-400 dark:text-slate-500">-</div>
   }
 
   return (
@@ -81,7 +81,7 @@ export function SecureFileLink({
       href={normalized}
       target="_blank"
       rel="noreferrer"
-      className={className || "text-sm text-blue-600 underline"}
+      className={className || "text-sm text-blue-600 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300"}
     >
       {label}
     </a>

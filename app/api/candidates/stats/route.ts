@@ -13,14 +13,17 @@ export async function GET(request: NextRequest) {
     }
 
     // Get various statistics
-    const [totalResult, todayResult, statusResult, recentResult] = await Promise.all([
-      // Total candidates
+    const [totalResult, todayResult, monthResult, statusResult, recentResult] = await Promise.all([
       query("SELECT COUNT(*) as total FROM candidates"),
 
-      // Today's candidates
       query(`SELECT COUNT(*) as today FROM candidates WHERE DATE(created_at) = CURRENT_DATE`),
 
-      // Status breakdown
+      query(`
+        SELECT COUNT(*) as month
+        FROM candidates
+        WHERE DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)
+      `),
+
       query(`
         SELECT 
           status,
@@ -29,23 +32,32 @@ export async function GET(request: NextRequest) {
         GROUP BY status
       `),
 
-      // Recent candidates
       query(`
         SELECT 
-          id, full_name, post_applied_for, status, created_at
+          id, full_name, surname, post_applied_for, status, created_at
         FROM candidates 
         ORDER BY created_at DESC 
-        LIMIT 5
+        LIMIT 8
       `),
     ])
+
+    const statusBreakdown = statusResult.rows.reduce(
+      (acc: Record<string, number>, row: { status: string; count: string }) => {
+        acc[row.status] = Number.parseInt(row.count)
+        return acc
+      },
+      {},
+    )
 
     const stats = {
       total: Number.parseInt(totalResult.rows[0].total),
       today: Number.parseInt(todayResult.rows[0].today),
-      statusBreakdown: statusResult.rows.reduce((acc, row) => {
-        acc[row.status] = Number.parseInt(row.count)
-        return acc
-      }, {}),
+      thisMonth: Number.parseInt(monthResult.rows[0].month),
+      statusBreakdown,
+      active: statusBreakdown.active ?? 0,
+      inProcess: statusBreakdown.in_process ?? 0,
+      completed: statusBreakdown.completed ?? 0,
+      rejected: statusBreakdown.rejected ?? 0,
       recent: recentResult.rows,
     }
 
