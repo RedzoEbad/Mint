@@ -118,26 +118,17 @@ function drawClippedImage(doc: PdfDoc, buffer: Buffer, x: number, y: number, wid
 function drawReferenceHeader(
   doc: PdfDoc,
   headerBuffer: Buffer,
-  isFormB: boolean,
   left: number,
   pageWidth: number,
   startY: number,
 ): number {
-  const headerHeight = 92
-  const headerFraction = 0.205
-  const imageWidth = pageWidth * 2
-  const imageHeight = headerHeight / headerFraction
-  const imageX = isFormB ? left - pageWidth : left
+  const headerHeight = 90
 
-  doc.save()
-  doc.rect(left, startY, pageWidth, headerHeight).clip()
   try {
-    doc.image(headerBuffer, imageX, startY, { width: imageWidth, height: imageHeight })
+    doc.image(headerBuffer, left, startY, { fit: [pageWidth, headerHeight], align: "left", valign: "top" })
   } catch {
-    doc.restore()
     return drawMintHeader(doc, null, left, pageWidth, startY)
   }
-  doc.restore()
 
   doc.font("Helvetica").fontSize(6.5).fillColor(BLACK).text("0001", left, startY + headerHeight + 1)
   return startY + headerHeight + 8
@@ -177,7 +168,7 @@ function drawMintHeader(
   }
 
   doc.font("Helvetica-Bold").fontSize(10).fillColor(MINT_BLUE)
-  drawClippedText(doc, "مينت انترناشيونال", col3X, y + 2, col3W, 12, {
+  drawClippedText(doc, "MINT INTERNATIONAL", col3X, y + 2, col3W, 12, {
     font: "Helvetica-Bold",
     size: 10,
     align: "right",
@@ -191,8 +182,8 @@ function drawMintHeader(
   drawClippedText(doc, "Licence No. 1689", left + 3, y + 12, col1W - 12, 8, { size: 6 })
 
   doc.rect(col3X + 6, y, col3W - 6, boxHeight).lineWidth(0.5).strokeColor(BLACK).stroke()
-  drawClippedText(doc, "وكيل توظيف خارجي", col3X + 10, y + 3, col3W - 16, 8, { size: 6, align: "right" })
-  drawClippedText(doc, "رقم الترخيص ١٦٨٩", col3X + 10, y + 12, col3W - 16, 8, { size: 6, align: "right" })
+  drawClippedText(doc, "Overseas Employment Promoter", col3X + 10, y + 3, col3W - 16, 8, { size: 6, align: "right" })
+  drawClippedText(doc, "Licence No. 1689", col3X + 10, y + 12, col3W - 16, 8, { size: 6, align: "right" })
 
   y += boxHeight + 6
   const halfW = pageWidth / 2 - 4
@@ -414,7 +405,7 @@ export async function generateCandidatePdf(options: {
   const left = doc.page.margins.left
   let y =
     headerImageBuffer != null
-      ? drawReferenceHeader(doc, headerImageBuffer, isFormB, left, pageWidth, doc.page.margins.top)
+      ? drawReferenceHeader(doc, headerImageBuffer, left, pageWidth, doc.page.margins.top)
       : drawMintHeader(doc, logoBuffer, left, pageWidth, doc.page.margins.top)
 
   doc.font("Helvetica-Bold").fontSize(10).fillColor(BLACK)

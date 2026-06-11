@@ -43,9 +43,13 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       logger.warn("PDF: logo not found", ctx)
     }
     try {
-      headerImageBuffer = await fs.readFile(path.join(process.cwd(), "public", "images", "mint-form-reference.png"))
+      headerImageBuffer = await fs.readFile(path.join(process.cwd(), "public", "images", "mint-form-header.png"))
     } catch {
-      logger.warn("PDF: form header reference not found", ctx)
+      try {
+        headerImageBuffer = await fs.readFile(path.join(process.cwd(), "public", "images", "mint-form-reference.png"))
+      } catch {
+        logger.warn("PDF: form header image not found", ctx)
+      }
     }
 
     let profileImageBuffer: Buffer | null = null
