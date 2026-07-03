@@ -33,10 +33,6 @@ export type CandidateFormValues = {
 export type CandidateFormFiles = {
   profileImage: boolean
   passportImage: boolean
-  cnicFront: boolean
-  cnicBack: boolean
-  educationalDocument: boolean
-  experienceLetter: boolean
   cv: boolean
 }
 
@@ -98,10 +94,6 @@ export function validateCandidateForm(
   const fileChecks: { key: keyof CandidateFormFiles; label: string }[] = [
     { key: "profileImage", label: "Profile image" },
     { key: "passportImage", label: "Passport picture" },
-    { key: "cnicFront", label: "CNIC front image" },
-    { key: "cnicBack", label: "CNIC back image" },
-    { key: "educationalDocument", label: "Educational certificate" },
-    { key: "experienceLetter", label: "Experience letter" },
     { key: "cv", label: "CV document" },
   ]
 

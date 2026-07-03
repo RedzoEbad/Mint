@@ -222,10 +222,6 @@ export default function AddCandidatePage() {
       {
         profileImage: Boolean(profileImageFile),
         passportImage: Boolean(passportImageFile),
-        cnicFront: Boolean(cnicFrontFile),
-        cnicBack: Boolean(cnicBackFile),
-        educationalDocument: Boolean(educationalDocFile),
-        experienceLetter: Boolean(experienceLetterFile),
         cv: Boolean(cvFile),
       },
     )
@@ -569,6 +565,7 @@ export default function AddCandidatePage() {
                 id="cnic-front"
                 label="CNIC Front"
                 fileName={cnicFrontName}
+                required={false}
                 hint="PDF or image, max 5MB"
                 onFileChange={(e) => handleDocFileChange(e, setCnicFrontFile, setCnicFrontName)}
                 onClear={() => { setCnicFrontFile(null); setCnicFrontName("") }}
@@ -577,6 +574,7 @@ export default function AddCandidatePage() {
                 id="cnic-back"
                 label="CNIC Back"
                 fileName={cnicBackName}
+                required={false}
                 hint="PDF or image, max 5MB"
                 onFileChange={(e) => handleDocFileChange(e, setCnicBackFile, setCnicBackName)}
                 onClear={() => { setCnicBackFile(null); setCnicBackName("") }}
@@ -596,6 +594,7 @@ export default function AddCandidatePage() {
               id="educational-doc"
               label="Educational Certificate"
               fileName={educationalDocName}
+              required={false}
               hint="Matric, intermediate, diploma, or degree certificate — PDF or image, max 5MB"
               onFileChange={(e) => handleDocFileChange(e, setEducationalDocFile, setEducationalDocName)}
               onClear={() => { setEducationalDocFile(null); setEducationalDocName("") }}
@@ -827,6 +826,7 @@ export default function AddCandidatePage() {
               id="experience-letter"
               label="Experience Letter"
               fileName={experienceLetterName}
+              required={false}
               hint="PDF or image, max 5MB"
               onFileChange={(e) => handleDocFileChange(e, setExperienceLetterFile, setExperienceLetterName)}
               onClear={() => { setExperienceLetterFile(null); setExperienceLetterName("") }}

@@ -272,10 +272,6 @@ export default function EditCandidatePage() {
       {
         profileImage: Boolean(form.profile_image),
         passportImage: Boolean(form.passport_image),
-        cnicFront: Boolean(form.cnic_front_image),
-        cnicBack: Boolean(form.cnic_back_image),
-        educationalDocument: Boolean(form.matric_certificate),
-        experienceLetter: Boolean(form.experience_letter),
         cv: Boolean(form.cv_file),
       },
     )
@@ -479,12 +475,14 @@ export default function EditCandidatePage() {
               <DocUploadField
                 id="edit-cnic-front"
                 label="CNIC Front"
+                required={false}
                 fileName={form.cnic_front_image ? form.cnic_front_image.split("/").pop() : ""}
                 onFileChange={(e) => handleDocFieldUpload(e, "cnic_front_image", "cnic-images")}
               />
               <DocUploadField
                 id="edit-cnic-back"
                 label="CNIC Back"
+                required={false}
                 fileName={form.cnic_back_image ? form.cnic_back_image.split("/").pop() : ""}
                 onFileChange={(e) => handleDocFieldUpload(e, "cnic_back_image", "cnic-images")}
               />
@@ -523,6 +521,7 @@ export default function EditCandidatePage() {
             <DocUploadField
               id="edit-educational-doc"
               label="Upload Educational Document"
+              required={false}
               fileName={form.matric_certificate ? form.matric_certificate.split("/").pop() : ""}
               onFileChange={(e) => handleDocFieldUpload(e, "matric_certificate", "certificates")}
             />
@@ -635,6 +634,7 @@ export default function EditCandidatePage() {
             <DocUploadField
               id="edit-experience-letter"
               label="Experience Letter"
+              required={false}
               fileName={form.experience_letter ? form.experience_letter.split("/").pop() : ""}
               onFileChange={(e) => handleDocFieldUpload(e, "experience_letter", "experience-letters")}
             />
