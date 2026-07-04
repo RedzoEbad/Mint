@@ -33,7 +33,7 @@ export function CandidateFormSection({
     <Card
       id={id}
       className={cn(
-        "candidate-glass-card border-0 overflow-hidden candidate-slide-in shadow-lg transition-shadow duration-300 hover:shadow-xl dark:hover:shadow-lg dark:hover:shadow-black/10",
+        "candidate-glass-card border-0 overflow-hidden candidate-slide-in shadow-lg transition-shadow duration-300 hover:shadow-xl dark:hover:shadow-lg dark:hover:shadow-black/10 gap-0 py-0",
         isPrimary && "ring-1 ring-blue-200/60 dark:ring-blue-700/40",
         className,
       )}
@@ -41,35 +41,39 @@ export function CandidateFormSection({
     >
       <CardHeader
         className={cn(
-          "relative overflow-hidden pb-5",
+          "relative overflow-hidden px-6 pt-5 pb-5",
           isPrimary
             ? "bg-gradient-to-r from-blue-600 via-blue-600 to-indigo-600 text-white border-b-0"
-            : "bg-gradient-to-r from-white via-slate-50/90 to-slate-50/80 border-b border-slate-100/80 dark:from-slate-800 dark:via-slate-800 dark:to-slate-800/90 dark:border-slate-600/50",
+            : "bg-gradient-to-r from-slate-50 via-white to-blue-50/40 border-b border-slate-100/80 dark:from-slate-800 dark:via-slate-800 dark:to-blue-950/40 dark:border-slate-600/50",
         )}
       >
         <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-white/10 blur-2xl pointer-events-none" />
-        <div className="absolute -left-4 bottom-0 h-16 w-16 rounded-full bg-slate-400/5 blur-xl pointer-events-none dark:bg-slate-400/10" />
+        <div className="absolute -left-4 bottom-0 h-16 w-16 rounded-full bg-blue-400/5 blur-xl pointer-events-none dark:bg-blue-400/10" />
 
         <div className="relative flex items-start gap-3.5">
-          {step != null && (
+          <div className="relative shrink-0">
             <div
               className={cn(
-                "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold shadow-sm",
+                "flex h-10 w-10 items-center justify-center rounded-xl shadow-md",
                 isPrimary
-                  ? "bg-white/20 text-white ring-1 ring-white/25"
-                  : "bg-gradient-to-br from-slate-600 to-slate-700 text-white dark:from-slate-500 dark:to-slate-600",
+                  ? "bg-white/15 ring-1 ring-white/25 backdrop-blur-sm"
+                  : "bg-gradient-to-br from-blue-600 to-indigo-600 shadow-blue-500/25 ring-1 ring-blue-500/20",
               )}
             >
-              {step}
+              <Icon className="h-5 w-5 text-white" />
             </div>
-          )}
-          <div
-            className={cn(
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-sm",
-              isPrimary ? "bg-white/20 ring-1 ring-white/25" : "bg-slate-100 ring-1 ring-slate-200/60 dark:bg-slate-700 dark:ring-slate-600/50",
+            {step != null && (
+              <div
+                className={cn(
+                  "absolute -top-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none shadow-sm ring-2",
+                  isPrimary
+                    ? "bg-white text-blue-700 ring-blue-600"
+                    : "bg-white text-blue-700 ring-blue-600 dark:bg-blue-500 dark:text-white dark:ring-slate-800",
+                )}
+              >
+                {step}
+              </div>
             )}
-          >
-            <Icon className={cn("h-5 w-5", isPrimary ? "text-white" : "text-slate-600 dark:text-slate-300")} />
           </div>
           <div className="min-w-0 pt-0.5">
             <CardTitle
@@ -88,7 +92,7 @@ export function CandidateFormSection({
           </div>
         </div>
       </CardHeader>
-      <CardContent className={cn("pt-6", contentClassName)}>{children}</CardContent>
+      <CardContent className={cn("px-6 pt-6 pb-6", contentClassName)}>{children}</CardContent>
     </Card>
   )
 }

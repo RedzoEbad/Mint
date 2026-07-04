@@ -7,10 +7,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { CandidateDateField } from "@/components/candidate-date-field"
 import { format } from "date-fns"
-import { Loader2, CalendarIcon, Plus, X, Upload, Info, FileDown, Briefcase, User, BookOpen, Globe, MapPin, Stamp, FileText, Sparkles } from "lucide-react"
+import { Loader2, Plus, X, Upload, Info, FileDown, Briefcase, User, BookOpen, Globe, MapPin, Stamp, FileText, Sparkles } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { computeExperienceTotal, sanitizeExperienceInput } from "@/lib/candidate-experience"
 import { validateCandidateForm, validateDocOrImageFile, formatDiplomaDetails } from "@/lib/candidate-form-validation"
@@ -291,7 +290,8 @@ export default function AddCandidatePage() {
           title: "Success",
           description: "Candidate created successfully",
         })
-        router.push("/dashboard/candidates")
+        router.refresh()
+        router.push(data.candidateId ? `/dashboard/candidates/${data.candidateId}` : "/dashboard/candidates")
       } else {
         toast({
           title: "Error",
@@ -301,6 +301,11 @@ export default function AddCandidatePage() {
       }
     } catch (error) {
       console.error("Error creating candidate:", error)
+      toast({
+        title: "Error",
+        description: "Failed to create candidate. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setSubmitting(false)
     }
@@ -477,7 +482,7 @@ export default function AddCandidatePage() {
 
             <div className="space-y-2">
               <ReqLabel>Date of Birth</ReqLabel>
-              <DateField
+              <CandidateDateField
                 label="Select date of birth"
                 date={form.date_of_birth}
                 onSelect={(d) => setField("date_of_birth", d)}
@@ -524,7 +529,7 @@ export default function AddCandidatePage() {
 
             <div className="space-y-2">
               <ReqLabel>Date of Issue</ReqLabel>
-              <DateField
+              <CandidateDateField
                 label="Select issue date"
                 date={form.date_of_issue}
                 onSelect={(d) => setField("date_of_issue", d)}
@@ -536,7 +541,7 @@ export default function AddCandidatePage() {
 
             <div className="space-y-2">
               <ReqLabel>Date of Expiry</ReqLabel>
-              <DateField
+              <CandidateDateField
                 label="Select expiry date"
                 date={form.date_of_expiry}
                 onSelect={(d) => setField("date_of_expiry", d)}
@@ -934,71 +939,5 @@ export default function AddCandidatePage() {
         </form>
       </div>
     </DashboardLayout>
-  )
-}
-
-function DateField({
-  label,
-  date,
-  onSelect,
-  fromYear,
-  toYear,
-  disableFuture,
-  disabledDates,
-}: {
-  label: string
-  date?: Date
-  onSelect: (d?: Date) => void
-  fromYear?: number
-  toYear?: number
-  disableFuture?: boolean
-  disabledDates?: (date: Date) => boolean
-}) {
-  const today = new Date()
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          className={`justify-start w-full ${CANDIDATE_SELECT} candidate-input-field font-medium`}
-        >
-          <CalendarIcon className="mr-2 h-4 w-4 text-slate-400 dark:text-slate-500" /> {date ? format(date, "PPP") : label}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="p-0 border-0 shadow-2xl rounded-2xl overflow-hidden candidate-glass-card" align="start">
-        <div className="p-4 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md">
-          <Calendar
-            mode="single"
-            selected={date}
-            onSelect={onSelect}
-            captionLayout="dropdown"
-            fromYear={fromYear}
-            toYear={toYear}
-            disabled={(d) => {
-              if (disableFuture && d > today) return true
-              if (disabledDates && disabledDates(d)) return true
-              return false
-            }}
-            initialFocus
-            className="rounded-xl"
-          />
-          <div className="flex justify-between items-center p-2 pt-4 border-t border-slate-100 dark:border-slate-600/50 mt-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onSelect(undefined)}
-              className="text-slate-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
-            >
-              Clear
-            </Button>
-            {date && (
-              <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 px-2 py-1 rounded-md">
-                {format(date, "PPP")}
-              </span>
-            )}
-          </div>
-        </div>
-      </PopoverContent>
-    </Popover>
   )
 }

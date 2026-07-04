@@ -9,10 +9,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { CandidateDateField } from "@/components/candidate-date-field"
 import { format } from "date-fns"
-import { Loader2, CalendarIcon, Plus, X, FileDown, Upload, Image as ImageIcon, Info, ArrowLeft, GraduationCap } from "lucide-react"
+import { Loader2, Plus, X, FileDown, Upload, Image as ImageIcon, Info, ArrowLeft, GraduationCap } from "lucide-react"
 
 type TechnicalQualEntry = {
   qualification_name: string
@@ -303,7 +302,8 @@ export default function EditCandidatePage() {
       const json = await res.json()
       if (json.success) {
         toast({ title: "Success", description: "Candidate updated successfully" })
-        router.push("/dashboard/candidates")
+        router.refresh()
+        router.push(`/dashboard/candidates/${id}`)
       } else {
         toast({ title: "Error", description: json.message || "Failed to update", variant: "destructive" })
       }
@@ -411,13 +411,15 @@ export default function EditCandidatePage() {
 
             {/* Date of Birth */}
             <div className="grid grid-cols-1 md:grid-cols-1 gap-3">
-              <DateField
+              <CandidateDateField
                 label="Date of birth"
                 date={form.date_of_birth}
                 onSelect={(d) => setField("date_of_birth", d)}
                 fromYear={1950}
                 toYear={new Date().getFullYear()}
                 disableFuture
+                buttonClassName="justify-start w-full"
+                popoverClassName="p-0"
               />
             </div>
             <div className="md:col-span-2 border-t pt-4 space-y-2">
@@ -442,15 +444,17 @@ export default function EditCandidatePage() {
             <Input placeholder="Place of issue" value={form.place_of_issue} onChange={(e) => setField("place_of_issue", e.target.value)} />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:col-span-2">
-              <DateField
+              <CandidateDateField
                 label="Date of issue"
                 date={form.date_of_issue}
                 onSelect={(d) => setField("date_of_issue", d)}
                 fromYear={2000}
                 toYear={new Date().getFullYear()}
                 disableFuture
+                buttonClassName="justify-start w-full"
+                popoverClassName="p-0"
               />
-              <DateField
+              <CandidateDateField
                 label="Date of expiry"
                 date={form.date_of_expiry}
                 onSelect={(d) => setField("date_of_expiry", d)}
@@ -462,6 +466,8 @@ export default function EditCandidatePage() {
                   }
                   return false
                 }}
+                buttonClassName="justify-start w-full"
+                popoverClassName="p-0"
               />
             </div>
             <div className="md:col-span-2 grid gap-4 sm:grid-cols-2 border-t pt-4">
@@ -681,56 +687,5 @@ export default function EditCandidatePage() {
         </Card>
       </form>
     </DashboardLayout>
-  )
-}
-
-function DateField({
-  label,
-  date,
-  onSelect,
-  fromYear,
-  toYear,
-  disableFuture,
-  disabledDates,
-}: {
-  label: string
-  date?: Date
-  onSelect: (d?: Date) => void
-  fromYear?: number
-  toYear?: number
-  disableFuture?: boolean
-  disabledDates?: (date: Date) => boolean
-}) {
-  const today = new Date()
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="outline" className="justify-start w-full">
-          <CalendarIcon className="mr-2 h-4 w-4" /> {date ? format(date, "PPP") : label}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="p-0" align="start">
-        <div className="p-2">
-          <Calendar
-            mode="single"
-            selected={date}
-            onSelect={onSelect}
-            captionLayout="dropdown"
-            fromYear={fromYear}
-            toYear={toYear}
-            disabled={(d) => {
-              if (disableFuture && d > today) return true
-              if (disabledDates && disabledDates(d)) return true
-              return false
-            }}
-            initialFocus
-          />
-          <div className="flex justify-between p-2 pt-0">
-            <Button variant="ghost" size="sm" onClick={() => onSelect(undefined)}>Clear</Button>
-            {date ? <span className="text-xs text-muted-foreground px-2">{format(date, "PPP")}</span> : null}
-          </div>
-        </div>
-      </PopoverContent>
-    </Popover>
   )
 }
